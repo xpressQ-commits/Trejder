@@ -1,0 +1,26 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next
+/out
+
+# tests and tooling
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# editor and OS files
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+
+# local uploads
+/storage
+/.data

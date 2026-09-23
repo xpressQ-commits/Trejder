@@ -1,0 +1,47 @@
+# Security
+
+## Non-negotiable invariants
+
+### Tenant and role isolation
+
+Every request derives the user from the server session and reloads an active company membership. Repository reads and writes include tenant/ownership predicates. Client values never select acting company, seller, bidder, owner, role, status, accepted identity or fee. Unknown or cross-tenant object references should generally produce a non-disclosing not-found response.
+
+`VIEWER` cannot mutate. `TRADER` can perform marketplace mutations but cannot manage the company or users. `ADMIN` can do both. Middleware and hidden controls may improve UX but never replace use-case authorization.
+
+### Bid anonymity
+
+Before acceptance, seller APIs return an explicit allow-list only: opaque listing-scoped bid reference, `Bidgivare N`, amount, timestamps and later approved anonymous trust signals. They never serialize ORM bid rows or return company/user IDs, organization number, identity, contact data, globally stable aliases or lookup-capable metadata. Non-winning bidders stay anonymous after another bid wins.
+
+Identity is revealed only through a completed-match projection to the matched seller and buyer.
+
+### Money and commercial terms
+
+Money is integer öre. The current server policy is 49,900 öre excluding VAT on each side of a dealer match. Acceptance snapshots both fees and a terms version in the Match. Client-supplied amount, fee, party or state fields cannot populate the match.
+
+### State, concurrency and audit
+
+Publishing, bid mutation and acceptance are server-controlled transitions. Acceptance uses a single transaction, row locking/conditional updates and unique constraints. Sensitive commands use idempotency where retries can duplicate effects. Successful important actions append a sanitized audit record attributed from the session, never the request body.
+
+Production database privileges should make match commercial snapshots and audit rows append-only/immutable for the runtime role.
+
+## Authentication baseline and work before launch
+
+- Database-backed revocable sessions; secure cookies in production.
+- Exact trusted origins and CSRF/origin protections for auth and application mutations.
+- Verified email is mandatory; public Better Auth sign-up is disabled. An emailed, one-time invitation is the only public account-creation capability.
+- Invitation tokens contain 256 bits of randomness and only SHA-256 hashes are stored. Company and role are loaded from the locked row; acceptance payloads cannot override them.
+- Existing accounts must be authenticated as the invitation email. A token may create a new verified credential identity because possession proves control of the destination mailbox.
+- Membership and company status are reloaded on every dealer request. Suspension or revocation therefore removes dealer access without relying on browser state or global session revocation.
+- Application mutations require an exact configured Origin. Better Auth keeps its own origin and CSRF protections.
+- Successful password reset revokes the user's existing sessions.
+- Password reset and verification delivery use the transactional email abstraction. A production provider adapter and endpoint-specific distributed rate limiting remain deployment work.
+
+## Images
+
+Vehicle originals use private storage and server-generated random object keys that are never returned in DTOs. Every upload, read, replacement and deletion first resolves a freshly authorized active company and tenant-scoped listing. Supported formats are JPEG, PNG and WebP, limited to 10 MB, with claimed MIME checked against file signatures and structural markers. Position is server-validated to 1–3 and PostgreSQL enforces uniqueness per listing.
+
+Draft images may be added, replaced or removed. Active images may only be replaced atomically, preserving the exactly-three invariant. Reads use an authenticated application route with `private, no-store` and `nosniff`; the R2 bucket is not public. Failed database writes attempt to remove the newly uploaded object, and failed post-commit cleanup leaves an inaccessible orphan for operational cleanup rather than exposing data.
+
+## Verification strategy
+
+Before each feature ships, test direct API access, the complete role matrix, cross-tenant IDs, stale sessions, mass assignment, malformed input and invalid state transitions. Anonymity contract tests recursively reject forbidden keys and known bidder values. Acceptance requires real PostgreSQL concurrency tests with independent connections. UI tests supplement but never prove server authorization.

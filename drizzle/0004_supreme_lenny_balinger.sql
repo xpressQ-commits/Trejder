@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle_listings" ADD CONSTRAINT "vehicle_listings_mileage_whole_mil" CHECK ("vehicle_listings"."mileage_km" <= 2000000 AND "vehicle_listings"."mileage_km" % 10 = 0);
