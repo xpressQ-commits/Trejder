@@ -6,6 +6,8 @@
 
 Every request derives the user from the server session and reloads an active company membership. Repository reads and writes include tenant/ownership predicates. Client values never select acting company, seller, bidder, owner, role, status, accepted identity or fee. Unknown or cross-tenant object references should generally produce a non-disclosing not-found response.
 
+Platform administrators are held in a separate authority table and never inferred from the dealer-company `ADMIN` role. Bootstrap credentials are supplied only at runtime, hashed with Better Auth's credential hasher and never printed or committed.
+
 `VIEWER` cannot mutate. `TRADER` can perform marketplace mutations but cannot manage the company or users. `ADMIN` can do both. Middleware and hidden controls may improve UX but never replace use-case authorization.
 
 ### Bid anonymity
@@ -38,9 +40,11 @@ Production database privileges should make match commercial snapshots and audit 
 
 ## Images
 
-Vehicle originals use private storage and server-generated random object keys that are never returned in DTOs. Every upload, read, replacement and deletion first resolves a freshly authorized active company and tenant-scoped listing. Supported formats are JPEG, PNG and WebP, limited to 10 MB, with claimed MIME checked against file signatures and structural markers. Position is server-validated to 1–3 and PostgreSQL enforces uniqueness per listing.
+Vehicle originals use private storage and server-generated opaque object keys with 256 random bits, no tenant/listing identifiers, and no exposure in DTOs. Every upload, read, replacement and deletion first resolves a freshly authorized active company and tenant-scoped listing. Supported formats are JPEG, PNG and WebP, limited to 10 MB, with claimed MIME checked against file signatures and structural markers. Position is server-validated to 1–3 and PostgreSQL enforces uniqueness per listing.
 
 Draft images may be added, replaced or removed. Active images may only be replaced atomically, preserving the exactly-three invariant. Reads use an authenticated application route with `private, no-store` and `nosniff`; the R2 bucket is not public. Failed database writes attempt to remove the newly uploaded object, and failed post-commit cleanup leaves an inaccessible orphan for operational cleanup rather than exposing data.
+
+Marketplace image reads independently reload active membership and require an active, other-company listing. Withdrawing a listing therefore immediately removes its marketplace image access. Marketplace DTOs expose only application image routes, never object keys or image identifiers.
 
 ## Verification strategy
 

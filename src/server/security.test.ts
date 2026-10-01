@@ -10,20 +10,20 @@ afterEach(() => {
 
 describe("request security", () => {
   it("accepts the configured origin regardless of URL path", () => {
-    process.env.BETTER_AUTH_URL = "https://handlarborsen.example/auth";
-    expect(() => assertSameOrigin(new Request("https://handlarborsen.example/api", {
-      headers: { origin: "https://handlarborsen.example" },
+    process.env.BETTER_AUTH_URL = "https://trejder.example/auth";
+    expect(() => assertSameOrigin(new Request("https://trejder.example/api", {
+      headers: { origin: "https://trejder.example" },
     }))).not.toThrow();
   });
 
   it.each([
     ["a missing Origin header", undefined],
     ["a foreign Origin header", "https://attacker.example"],
-    ["an origin that only shares a hostname suffix", "https://handlarborsen.example.attacker.example"],
+    ["an origin that only shares a hostname suffix", "https://trejder.example.attacker.example"],
   ])("rejects %s", (_label, origin) => {
-    process.env.BETTER_AUTH_URL = "https://handlarborsen.example";
+    process.env.BETTER_AUTH_URL = "https://trejder.example";
     const headers = origin ? { origin } : undefined;
-    expect(() => assertSameOrigin(new Request("https://handlarborsen.example/api", { headers })))
+    expect(() => assertSameOrigin(new Request("https://trejder.example/api", { headers })))
       .toThrowError(expect.objectContaining<Partial<AccessError>>({ status: 403, code: "INVALID_ORIGIN" }));
   });
 });

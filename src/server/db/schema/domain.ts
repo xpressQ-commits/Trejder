@@ -72,6 +72,14 @@ export const companyMembership = pgTable(
   ],
 );
 
+/** Internal platform authority, deliberately separate from dealer-company roles. */
+export const platformAdmin = pgTable("platform_admins", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const companyInvitation = pgTable(
   "company_invitations",
   {

@@ -1,4 +1,4 @@
-import { Building2, CarFront, Settings, Users } from "lucide-react";
+import { Building2, CarFront, Settings, Store, Users } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CompanySwitcher, LogoutButton } from "@/components/app-shell/session-controls";
@@ -7,7 +7,8 @@ type CompanyOption = { companyId: string; legalName: string };
 
 export function AppShell({ children, userName, companyName, companyId, role, companies }: { children: ReactNode; userName: string; companyName: string; companyId: string; role: "admin" | "trader" | "viewer"; companies: CompanyOption[] }) {
   const navigation = [
-    { href: "/app/bilar", label: "Bilar", icon: CarFront },
+    { href: "/app/marknad", label: "Marknad", icon: Store },
+    { href: "/app/bilar", label: "Mina bilar", icon: CarFront },
     { href: "/app/foretag", label: "Företag", icon: Building2 },
     ...(role === "admin" ? [{ href: "/app/anvandare", label: "Användare", icon: Users }] : []),
     { href: "/app/installningar", label: "Inställningar", icon: Settings },
@@ -15,7 +16,7 @@ export function AppShell({ children, userName, companyName, companyId, role, com
   return <div className="min-h-screen bg-[var(--background)] lg:grid lg:grid-cols-[16rem_1fr]">
     <aside className="border-b border-[var(--border)] bg-white lg:min-h-screen lg:border-r lg:border-b-0">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 lg:block lg:px-5 lg:py-6">
-        <Link href="/app" className="inline-flex min-h-11 items-center text-xl font-semibold tracking-tight">Handlarbörsen</Link>
+        <Link href="/app/marknad" className="inline-flex min-h-11 items-center text-xl font-semibold tracking-[-0.04em] text-[#16211b]">Trejder</Link>
         <div className="lg:hidden"><LogoutButton compact /></div>
         <div className="mt-7 hidden lg:block"><CompanySwitcher companies={companies} selectedCompanyId={companyId} /></div>
         <nav aria-label="Huvudnavigation" className="mt-6 hidden lg:block"><ul className="space-y-1">{navigation.map(({ href, label, icon: Icon }) => <li key={href}><Link href={href} className="flex min-h-11 items-center gap-3 rounded-lg px-3 font-medium hover:bg-slate-100"><Icon aria-hidden="true" size={19} />{label}</Link></li>)}</ul></nav>

@@ -41,7 +41,7 @@ export async function sendInvitationEmail(input: { email: string; token: string 
   const url = new URL(`/inbjudan/${encodeURIComponent(input.token)}`, baseUrl);
   await getEmailTransport().send({
     to: input.email,
-    subject: "Inbjudan till Handlarbörsen",
-    text: `Du har blivit inbjuden till Handlarbörsen. Öppna ${url.toString()}`,
+    subject: "Inbjudan till Trejder",
+    text: `Du har blivit inbjuden till Trejder. Öppna ${url.toString()}`,
   });
 }

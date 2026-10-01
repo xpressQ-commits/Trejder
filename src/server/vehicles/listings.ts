@@ -296,12 +296,7 @@ export async function putListingImage(input: {
     throw new AccessError(409, "ACTIVE_LISTING_REPLACE_ONLY");
   }
 
-  const objectKey = createPrivateObjectKey(
-    input.companyId,
-    input.listingId,
-    input.position,
-    validated.mimeType,
-  );
+  const objectKey = createPrivateObjectKey(validated.mimeType);
   const storage = getImageStorage();
   await storage.put(objectKey, input.bytes, validated.mimeType);
   let previousKey: string | undefined;
