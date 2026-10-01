@@ -1,11 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccessError } from "@/server/security";
 import {
   createLocalImageStorage,
   createPrivateObjectKey,
+  getImageStorage,
   MAX_IMAGE_BYTES,
   validateImage,
 } from "./images";
@@ -19,6 +20,7 @@ const png = new Uint8Array([
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -39,15 +41,26 @@ describe("private vehicle image validation", () => {
       .toThrowError(expect.objectContaining({ code: "INVALID_IMAGE_SIZE" }));
   });
 
-  it("creates non-enumerable, tenant-prefixed keys", () => {
-    const first = createPrivateObjectKey("company-a", "listing-a", 1, "image/jpeg");
-    const second = createPrivateObjectKey("company-a", "listing-a", 1, "image/jpeg");
-    expect(first).toMatch(/^company-a\/listing-a\/1-[a-f0-9]{32}\.jpg$/);
+  it("creates opaque, non-enumerable keys without tenant or listing identifiers", () => {
+    const first = createPrivateObjectKey("image/jpeg");
+    const second = createPrivateObjectKey("image/jpeg");
+    expect(first).toMatch(/^private\/[a-f0-9]{64}\.jpg$/);
+    expect(first).not.toContain("company-a");
+    expect(first).not.toContain("listing-a");
     expect(second).not.toBe(first);
   });
 
+  it("fails closed in production when private R2 storage is incomplete", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("R2_ENDPOINT", "");
+    vi.stubEnv("R2_ACCESS_KEY_ID", "");
+    vi.stubEnv("R2_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("R2_BUCKET", "");
+    expect(() => getImageStorage()).toThrowError("R2 private storage is not fully configured");
+  });
+
   it("stores, reads and deletes local private objects without allowing path traversal", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "handlarborsen-images-"));
+    const root = await mkdtemp(path.join(tmpdir(), "trejder-images-"));
     temporaryRoots.push(root);
     const storage = createLocalImageStorage(root);
     await storage.put("company/listing/1-test.jpg", jpeg, "image/jpeg");

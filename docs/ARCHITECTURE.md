@@ -28,6 +28,8 @@ The active company is stored as an opaque HttpOnly, SameSite=Strict cookie for U
 
 Dealer company creation is an internal service operation (`provisionDealerCompany`) with no public route or UI. It creates the company and initial ADMIN invitation atomically. A production operator interface or CLI remains an operational follow-up, not a public onboarding path.
 
+Internal platform authority is represented independently of dealer membership in `platform_admins`. The one-time `npm run admin:bootstrap` operation creates or promotes a verified credential user from runtime-only environment variables. Dealer `ADMIN` never implies platform authority.
+
 ## Layers
 
 1. `src/app`: routes, layouts, server-rendered views and narrow transport adapters.
@@ -44,7 +46,9 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 - The application is deployed as one service plus PostgreSQL and object storage.
 - Observability must avoid bidder identity in seller-facing logs, errors, analytics and URLs.
 
-Authorized image reads go through a tenant-scoped application route. DTOs contain that route, never the underlying object key. Object keys combine tenant/listing prefixes with 128 random bits, and the bucket remains private.
+Authorized image reads go through a tenant-scoped application route. DTOs contain that route, never the underlying object key. Object keys are opaque values with 256 random bits and contain no tenant or listing identifier; the bucket remains private.
+
+Marketplace reads use dedicated allow-listed DTOs and fresh active-company authorization. Queries expose only active listings owned by other companies, use bounded cursor pagination, and never select seller identity. Marketplace image routes repeat the same active/non-owner predicate at read time.
 
 ## Configuration
 

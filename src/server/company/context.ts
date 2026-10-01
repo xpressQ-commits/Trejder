@@ -6,7 +6,7 @@ import { hasPermission, type Permission, type Role } from "@/domain/authorizatio
 import { selectActiveCompany } from "@/domain/company-context";
 import { AccessError } from "@/server/security";
 
-export const ACTIVE_COMPANY_COOKIE = "handlarborsen_company";
+export const ACTIVE_COMPANY_COOKIE = "trejder_company";
 
 export type AuthenticatedUser = { id: string; email: string; name: string };
 export type ActiveCompanyContext = {

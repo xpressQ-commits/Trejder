@@ -18,9 +18,13 @@ One-page reg/model → mileage → comment → VAT → exactly three private ima
 
 The non-database implementation and local storage tests are complete. Migration `0004` and the gated Phase 2 PostgreSQL adversarial suite still require a disposable migrated PostgreSQL database before deployment.
 
-## Recommended Phase 3 — Marketplace browsing
+## Phase 3 — Marketplace browsing (implemented in code)
+
+Authenticated active dealer members browse bounded pages of active listings from other companies. Dedicated projections and image routes keep seller identity and private storage metadata hidden. Filtering is limited to registration/model text and deductible VAT. Bidding remains out of scope.
 
 Authenticated dealer browsing and listing details with minimal filters. Prevent own-company confusion while preserving the single dealer account model.
+
+The implementation and adversarial test coverage are complete in code. Migration `0005`, the full quality gate and the PostgreSQL integration suites still require execution in an environment with npm registry and disposable PostgreSQL access.
 
 ## Phase 4 — Anonymous bidding
 
