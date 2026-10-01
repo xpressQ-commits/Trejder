@@ -38,7 +38,8 @@ Production database privileges should make match commercial snapshots and audit 
 - Membership and company status are reloaded on every dealer request. Suspension or revocation therefore removes dealer access without relying on browser state or global session revocation.
 - Application mutations require an exact configured Origin. Better Auth keeps its own origin and CSRF protections.
 - Successful password reset revokes the user's existing sessions.
-- Password reset and verification delivery use the transactional email abstraction. A production provider adapter and endpoint-specific distributed rate limiting remain deployment work.
+- Password reset and verification delivery use the transactional email abstraction. Endpoint-specific distributed rate limiting remains deployment work.
+- Production transactional email uses Resend with an API key supplied only at runtime. Invitations, verification and password-reset messages default to `Trejder <konto@trejder.se>`; the domain must be verified before production delivery. Provider response bodies and token-bearing message content are never logged.
 
 ## Images
 

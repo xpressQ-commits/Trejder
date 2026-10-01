@@ -24,6 +24,35 @@ class UnconfiguredProductionTransport implements EmailTransport {
   }
 }
 
+const DEFAULT_FROM = "Trejder <konto@trejder.se>";
+
+export class ResendEmailTransport implements EmailTransport {
+  constructor(
+    private readonly apiKey: string,
+    private readonly from = DEFAULT_FROM,
+  ) {}
+
+  async send(message: TransactionalMessage): Promise<void> {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: this.from,
+        to: [message.to],
+        subject: message.subject,
+        text: message.text,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      throw new Error(`Transactional email delivery failed with status ${response.status}`);
+    }
+  }
+}
+
 let transport: EmailTransport | undefined;
 
 export function setEmailTransport(next: EmailTransport): void {
@@ -31,9 +60,12 @@ export function setEmailTransport(next: EmailTransport): void {
 }
 
 export function getEmailTransport(): EmailTransport {
-  return transport ?? (process.env.NODE_ENV === "production"
-    ? new UnconfiguredProductionTransport()
-    : new DevelopmentEmailTransport());
+  if (transport) return transport;
+  if (process.env.NODE_ENV !== "production") return new DevelopmentEmailTransport();
+  const apiKey = process.env.RESEND_API_KEY;
+  return apiKey
+    ? new ResendEmailTransport(apiKey, process.env.TRANSACTIONAL_EMAIL_FROM ?? DEFAULT_FROM)
+    : new UnconfiguredProductionTransport();
 }
 
 export async function sendInvitationEmail(input: { email: string; token: string }): Promise<void> {
