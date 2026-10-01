@@ -1,2 +1,2 @@
-ALTER TABLE "matches" ADD CONSTRAINT "matches_bid_and_parties_fk" FOREIGN KEY ("accepted_bid_id","listing_id","seller_company_id","buyer_company_id") REFERENCES "public"."bids"("id","listing_id","listing_seller_company_id","bidder_company_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "bids_match_reference_uq" ON "bids" USING btree ("id","listing_id","listing_seller_company_id","bidder_company_id");
+CREATE UNIQUE INDEX "bids_match_reference_uq" ON "bids" USING btree ("id","listing_id","listing_seller_company_id","bidder_company_id");--> statement-breakpoint
+ALTER TABLE "matches" ADD CONSTRAINT "matches_bid_and_parties_fk" FOREIGN KEY ("accepted_bid_id","listing_id","seller_company_id","buyer_company_id") REFERENCES "public"."bids"("id","listing_id","listing_seller_company_id","bidder_company_id") ON DELETE restrict ON UPDATE no action;

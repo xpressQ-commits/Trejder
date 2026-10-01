@@ -181,6 +181,7 @@ ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_user_id_users_id_fk" F
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_company_id_companies_id_fk" FOREIGN KEY ("actor_company_id") REFERENCES "public"."companies"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bids" ADD CONSTRAINT "bids_bidder_company_id_companies_id_fk" FOREIGN KEY ("bidder_company_id") REFERENCES "public"."companies"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bids" ADD CONSTRAINT "bids_placed_by_user_id_users_id_fk" FOREIGN KEY ("placed_by_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "vehicle_listings_id_seller_uq" ON "vehicle_listings" USING btree ("id","seller_company_id");--> statement-breakpoint
 ALTER TABLE "bids" ADD CONSTRAINT "bids_listing_and_seller_fk" FOREIGN KEY ("listing_id","listing_seller_company_id") REFERENCES "public"."vehicle_listings"("id","seller_company_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "company_invitations" ADD CONSTRAINT "company_invitations_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "company_invitations" ADD CONSTRAINT "company_invitations_invited_by_user_id_users_id_fk" FOREIGN KEY ("invited_by_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -209,5 +210,4 @@ CREATE INDEX "company_memberships_user_idx" ON "company_memberships" USING btree
 CREATE INDEX "matches_seller_idx" ON "matches" USING btree ("seller_company_id");--> statement-breakpoint
 CREATE INDEX "matches_buyer_idx" ON "matches" USING btree ("buyer_company_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "vehicle_images_listing_position_uq" ON "vehicle_images" USING btree ("listing_id","position");--> statement-breakpoint
-CREATE UNIQUE INDEX "vehicle_listings_id_seller_uq" ON "vehicle_listings" USING btree ("id","seller_company_id");--> statement-breakpoint
 CREATE INDEX "vehicle_listings_seller_status_idx" ON "vehicle_listings" USING btree ("seller_company_id","status");
