@@ -43,9 +43,9 @@ export function validateImage(bytes: Uint8Array, claimedMime: string) {
   return { mimeType: detected, byteSize: bytes.length, checksumSha256: createHash("sha256").update(bytes).digest("hex") };
 }
 
-export function createPrivateObjectKey(companyId: string, listingId: string, position: number, mime: SupportedImageMime): string {
+export function createPrivateObjectKey(mime: SupportedImageMime): string {
   const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
-  return `${companyId}/${listingId}/${position}-${randomBytes(16).toString("hex")}.${ext}`;
+  return `private/${randomBytes(32).toString("hex")}.${ext}`;
 }
 
 class LocalPrivateStorage implements PrivateImageStorage {

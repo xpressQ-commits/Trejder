@@ -11,7 +11,7 @@ function createAuth() {
   }
 
   const options = {
-    appName: "Handlarbörsen",
+    appName: "Trejder",
     secret,
     baseURL: process.env.BETTER_AUTH_URL,
     trustedOrigins: process.env.BETTER_AUTH_URL ? [new URL(process.env.BETTER_AUTH_URL).origin] : [],
@@ -29,7 +29,7 @@ function createAuth() {
       sendResetPassword: async ({ user: resetUser, url }) => {
         await getEmailTransport().send({
           to: resetUser.email,
-          subject: "Återställ lösenord för Handlarbörsen",
+          subject: "Återställ lösenord för Trejder",
           text: `Återställ ditt lösenord via ${url}`,
         });
       },
@@ -39,7 +39,7 @@ function createAuth() {
       sendVerificationEmail: async ({ user: pendingUser, url }) => {
         await getEmailTransport().send({
           to: pendingUser.email,
-          subject: "Verifiera e-post för Handlarbörsen",
+          subject: "Verifiera e-post för Trejder",
           text: `Verifiera din e-postadress via ${url}`,
         });
       },

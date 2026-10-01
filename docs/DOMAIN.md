@@ -53,7 +53,15 @@ Bid:
 
 Within one PostgreSQL transaction: authorize fresh seller membership; lock and validate seller-owned active listing; lock a valid bid scoped to that listing; conditionally move listing to matched; move the chosen bid to accepted and remaining bids to lost; create the unique Match using server-loaded amount/parties and server-owned fee policy; append audit records; commit. Concurrent attempts serialize, while unique constraints provide a final defence. Same-bid idempotent retry returns the existing match; a different later choice returns conflict.
 
-Phase 2 implements only the seller company's own listing use cases. Marketplace visibility is deliberately absent.
+Phase 2 implements only the seller company's own listing use cases; marketplace visibility is introduced separately in Phase 3.
+
+## Phase 3 marketplace visibility
+
+- An authenticated user with a fresh active membership may browse active listings owned by other dealer companies; VIEWER, TRADER and ADMIN have equal read access.
+- Draft, withdrawn, matched and own-company listings are not marketplace-visible.
+- Marketplace projections deliberately omit seller company/user identity, storage keys and internal metadata.
+- Marketplace images are readable only while the corresponding listing satisfies the marketplace visibility predicate.
+- Feed queries use bounded, newest-first cursor pagination and optional registration/model text and deductible-VAT filters.
 
 ## Phase 2 listing policy
 

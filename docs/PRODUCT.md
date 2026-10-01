@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Handlarbörsen is a responsive Swedish dealer-to-dealer vehicle marketplace. It should be as quick to use as posting a vehicle to a dealer group, while providing controlled bidding and a reliable completed match.
+Trejder is a responsive Swedish dealer-to-dealer vehicle marketplace. It should be as quick to use as posting a vehicle to a dealer group, while providing controlled bidding and a reliable completed match.
 
 ## Primary workflow
 
