@@ -1,7 +1,9 @@
 # Trejder brand assets
 
-This directory is reserved for approved Trejder brand assets. No approved logo
-file has been supplied yet, so the application currently uses a text wordmark.
+`trejder-email.png` is the approved Trejder logo supplied for transactional
+email. It is cropped and resized for efficient loading from the public HTTPS URL
+`https://trejder.se/brand/trejder-email.png`.
 
-Add the approved source asset here before replacing the text wordmark. Do not
-recreate or approximate the geometric mark from a description.
+Keep transactional email assets public, lightweight, and free from recipient or
+token data. Do not embed them as base64 or append invitation URLs as query
+parameters.

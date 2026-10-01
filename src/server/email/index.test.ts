@@ -1,15 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ResendEmailTransport } from "./index";
+import { ResendEmailTransport, sendInvitationEmail, setEmailTransport, type TransactionalMessage } from "./index";
 
 describe("ResendEmailTransport", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
 
   it("sends transactional mail from the configured Trejder identity", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
     vi.stubGlobal("fetch", fetchMock);
     const transport = new ResendEmailTransport("test-key");
 
-    await transport.send({ to: "dealer@example.test", subject: "Inbjudan", text: "Hemlig länk" });
+    await transport.send({ to: "dealer@example.test", subject: "Inbjudan", text: "Hemlig länk", html: "<p>Inbjudan</p>" });
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -20,6 +23,7 @@ describe("ResendEmailTransport", () => {
       to: ["dealer@example.test"],
       subject: "Inbjudan",
       text: "Hemlig länk",
+      html: "<p>Inbjudan</p>",
     });
   });
 
@@ -29,5 +33,22 @@ describe("ResendEmailTransport", () => {
 
     await expect(transport.send({ to: "dealer@example.test", subject: "Inbjudan", text: "Hemlig länk" }))
       .rejects.toThrow("Transactional email delivery failed with status 403");
+  });
+
+  it("keeps the existing invitation URL generation and passes it to the branded template", async () => {
+    let sent: TransactionalMessage | undefined;
+    setEmailTransport({
+      async send(message) {
+        sent = message;
+      },
+    });
+    vi.stubEnv("BETTER_AUTH_URL", "https://trejder.se");
+
+    await sendInvitationEmail({ email: "dealer@example.test", token: "abc/def?ghi" });
+
+    expect(sent?.to).toBe("dealer@example.test");
+    expect(sent?.html).toContain('href="https://trejder.se/inbjudan/abc%2Fdef%3Fghi"');
+    expect(sent?.html).toContain('src="https://trejder.se/brand/trejder-email.png"');
+    expect(sent?.text).toContain("https://trejder.se/inbjudan/abc%2Fdef%3Fghi");
   });
 });

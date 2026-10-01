@@ -1,7 +1,10 @@
+import { renderInviteEmail } from "./templates/invite";
+
 export type TransactionalMessage = {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 };
 
 export interface EmailTransport {
@@ -44,6 +47,7 @@ export class ResendEmailTransport implements EmailTransport {
         to: [message.to],
         subject: message.subject,
         text: message.text,
+        ...(message.html ? { html: message.html } : {}),
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -71,9 +75,12 @@ export function getEmailTransport(): EmailTransport {
 export async function sendInvitationEmail(input: { email: string; token: string }): Promise<void> {
   const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
   const url = new URL(`/inbjudan/${encodeURIComponent(input.token)}`, baseUrl);
+  const logoUrl = new URL("/brand/trejder-email.png", baseUrl);
+  const message = renderInviteEmail({ inviteUrl: url.toString(), logoUrl: logoUrl.toString() });
   await getEmailTransport().send({
     to: input.email,
-    subject: "Inbjudan till Trejder",
-    text: `Du har blivit inbjuden till Trejder. Öppna ${url.toString()}`,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
   });
 }
