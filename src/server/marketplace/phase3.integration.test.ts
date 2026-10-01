@@ -77,6 +77,8 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
       mimeType: "image/jpeg",
       byteSize: 6,
       checksumSha256: "a".repeat(64),
+      sourceChecksumSha256: "a".repeat(64),
+      plateRedactionStatus: "NO_PLATE_DETECTED" as const,
     })));
     await db.insert(vehicleImage).values(imageRows);
     for (const row of imageRows) storage.objects.set(row.objectKey, new Uint8Array([row.position]));

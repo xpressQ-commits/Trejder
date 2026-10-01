@@ -1,6 +1,7 @@
 export type ListingStatus = "draft" | "active" | "withdrawn" | "matched";
 export type ListingIdentifier = { kind: "registration" | "model"; value: string };
-export type ListingImage = { id: string; position: number; mimeType: string; byteSize: number; url: string };
+export type PlateRedactionStatus = "NOT_CHECKED" | "PROCESSING" | "NO_PLATE_DETECTED" | "PLATE_REDACTED" | "REVIEW_REQUIRED" | "FAILED";
+export type ListingImage = { id: string; position: number; mimeType: string; byteSize: number; plateRedactionStatus: PlateRedactionStatus; plateConfidence: number | null; url: string };
 export type OwnListing = {
   id: string;
   identifier: ListingIdentifier;

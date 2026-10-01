@@ -44,6 +44,7 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 - Migrations run with a migration owner; runtime should use a less-privileged PostgreSQL role.
 - Vehicle originals live in private storage. Development uses an ignored local directory through the same `PrivateImageStorage` contract. Production uses a private Cloudflare R2 bucket through the S3-compatible adapter; objects are never exposed by public bucket URL.
 - The application is deployed as one service plus PostgreSQL and object storage.
+- Plate detection is synchronous and server-side through a narrow provider adapter. The current provider is Plate Recognizer Snapshot Cloud; Sharp performs EXIF normalization and local blurring. No queue is introduced at the current volume.
 - Observability must avoid bidder identity in seller-facing logs, errors, analytics and URLs.
 
 Authorized image reads go through a tenant-scoped application route. DTOs contain that route, never the underlying object key. Object keys are opaque values with 256 random bits and contain no tenant or listing identifier; the bucket remains private.

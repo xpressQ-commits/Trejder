@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { Role } from "@/domain/authorization";
 import {
   canEditActiveListingFields,
@@ -10,6 +10,7 @@ import {
 import { getDb } from "@/server/db";
 import { auditLog, vehicleImage, vehicleListing } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
+import { redactVehicleImage, type PlateRedactionStatus } from "@/server/vehicles/plate-redaction";
 import {
   createPrivateObjectKey,
   getImageStorage,
@@ -32,6 +33,8 @@ export type OwnListingDto = {
     position: number;
     mimeType: string;
     byteSize: number;
+    plateRedactionStatus: PlateRedactionStatus;
+    plateConfidence: number | null;
     url: string;
   }>;
 };
@@ -101,6 +104,8 @@ function toDto(
       position: image.position,
       mimeType: image.mimeType,
       byteSize: image.byteSize,
+      plateRedactionStatus: image.plateRedactionStatus,
+      plateConfidence: image.plateConfidence === null ? null : image.plateConfidence / 1000,
       url: `/api/company/listings/${row.id}/images/${image.position}`,
     })),
   };
@@ -232,9 +237,12 @@ export async function publishListing(input: {
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
     if (listing.status === "active") return;
     if (listing.status !== "draft") throw new AccessError(409, "INVALID_LISTING_TRANSITION");
-    const [imageCount] = await tx.select({ value: count() }).from(vehicleImage)
+    const images = await tx.select({ status: vehicleImage.plateRedactionStatus }).from(vehicleImage)
       .where(eq(vehicleImage.listingId, listing.id));
-    if (imageCount.value !== 3) throw new AccessError(409, "THREE_IMAGES_REQUIRED");
+    if (images.length < 3 || images.length > 5) throw new AccessError(409, "IMAGE_COUNT_REQUIRED");
+    if (images.some((image) => !["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status))) {
+      throw new AccessError(409, "IMAGE_REDACTION_INCOMPLETE");
+    }
     await tx.update(vehicleListing).set({ status: "active", publishedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(vehicleListing.id, listing.id), eq(vehicleListing.status, "draft")));
     await tx.insert(auditLog).values({
@@ -284,10 +292,10 @@ export async function putListingImage(input: {
   claimedMime: string;
   bytes: Uint8Array;
 }): Promise<OwnListingDto> {
-  if (!Number.isInteger(input.position) || input.position < 1 || input.position > 3) {
+  if (!Number.isInteger(input.position) || input.position < 1 || input.position > 5) {
     throw new AccessError(400, "INVALID_IMAGE_POSITION");
   }
-  const validated = validateImage(input.bytes, input.claimedMime);
+  const source = validateImage(input.bytes, input.claimedMime);
   const current = await getOwnListing(input.companyId, input.listingId);
   if (current.status === "withdrawn" || current.status === "matched") {
     throw new AccessError(409, "LISTING_NOT_EDITABLE");
@@ -296,9 +304,20 @@ export async function putListingImage(input: {
     throw new AccessError(409, "ACTIVE_LISTING_REPLACE_ONLY");
   }
 
+  const [sameImage] = await getDb().select({ id: vehicleImage.id }).from(vehicleImage).where(and(
+    eq(vehicleImage.listingId, input.listingId),
+    eq(vehicleImage.position, input.position),
+    eq(vehicleImage.sourceChecksumSha256, source.checksumSha256),
+    inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
+  )).limit(1);
+  if (sameImage) return current;
+
+  const redaction = await redactVehicleImage(input.bytes, source.mimeType);
+  const validated = validateImage(redaction.bytes, redaction.mimeType);
+
   const objectKey = createPrivateObjectKey(validated.mimeType);
   const storage = getImageStorage();
-  await storage.put(objectKey, input.bytes, validated.mimeType);
+  await storage.put(objectKey, redaction.bytes, validated.mimeType);
   let previousKey: string | undefined;
   try {
     await getDb().transaction(async (tx) => {
@@ -324,6 +343,11 @@ export async function putListingImage(input: {
           mimeType: validated.mimeType,
           byteSize: validated.byteSize,
           checksumSha256: validated.checksumSha256,
+          sourceChecksumSha256: source.checksumSha256,
+          plateRedactionStatus: redaction.status,
+          plateConfidence: redaction.confidence === null ? null : Math.round(redaction.confidence * 1000),
+          plateProcessedAt: new Date(),
+          plateProcessingError: redaction.error,
           createdAt: new Date(),
         }).where(eq(vehicleImage.id, existing.id));
       } else {
@@ -334,6 +358,11 @@ export async function putListingImage(input: {
           mimeType: validated.mimeType,
           byteSize: validated.byteSize,
           checksumSha256: validated.checksumSha256,
+          sourceChecksumSha256: source.checksumSha256,
+          plateRedactionStatus: redaction.status,
+          plateConfidence: redaction.confidence === null ? null : Math.round(redaction.confidence * 1000),
+          plateProcessedAt: new Date(),
+          plateProcessingError: redaction.error,
         });
       }
       await tx.insert(auditLog).values({
@@ -346,6 +375,7 @@ export async function putListingImage(input: {
           position: input.position,
           mimeType: validated.mimeType,
           byteSize: validated.byteSize,
+          plateRedactionStatus: redaction.status,
         },
       });
     });

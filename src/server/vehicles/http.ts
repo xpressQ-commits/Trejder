@@ -28,7 +28,7 @@ export function parseListingId(value: string): string {
 }
 
 export function parseImagePosition(value: string): number {
-  const parsed = z.coerce.number().int().min(1).max(3).safeParse(value);
+  const parsed = z.coerce.number().int().min(1).max(5).safeParse(value);
   if (!parsed.success) throw new AccessError(404, "IMAGE_NOT_FOUND");
   return parsed.data;
 }

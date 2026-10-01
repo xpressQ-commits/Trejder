@@ -8,11 +8,11 @@ Trejder is a responsive Swedish dealer-to-dealer vehicle marketplace. It should 
 
 Publishing stays deliberately short:
 
-`Registration number OR vehicle model -> mileage -> short comment -> deductible VAT yes/no -> exactly 3 images -> publish`
+`Registration number OR vehicle model -> mileage -> short comment -> deductible VAT yes/no -> 3–5 checked images -> publish`
 
 There is no automatic vehicle lookup. Never invent specifications from a registration number or model.
 
-Phase 2 implements this as one Swedish, mobile-first form. The dealer's own `/app/bilar` area contains only its active listings, drafts and withdrawn listings; it is not a marketplace feed.
+Phase 2 implements this as one Swedish, mobile-first form. Images are checked server-side for visible registration plates; confident detections are blurred before publication. The dealer's own `/app/bilar` area contains only its active listings, drafts and withdrawn listings; it is not a marketplace feed.
 
 ## Account model
 

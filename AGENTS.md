@@ -1,6 +1,6 @@
 # Agent map
 
-This repository is a Swedish B2B vehicle marketplace for one company type: **car dealer**. A dealer can both sell and buy. Keep the product fast and narrow: `reg/model -> mileage -> comment -> VAT -> 3 images -> publish`.
+This repository is a Swedish B2B vehicle marketplace for one company type: **car dealer**. A dealer can both sell and buy. Keep the product fast and narrow: `reg/model -> mileage -> comment -> VAT -> 3–5 checked images -> publish`.
 
 ## Sources of truth
 

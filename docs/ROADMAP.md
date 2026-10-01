@@ -14,7 +14,7 @@ The implementation and non-database quality gate are complete. Migrations and ga
 
 ## Phase 2 — Fast vehicle publishing (complete in code)
 
-One-page reg/model → mileage → comment → VAT → exactly three private images flow, drafts, publish transition and own active listing management. Add storage provider, file safety, tenant isolation and publish constraint tests.
+One-page reg/model → mileage → comment → VAT → three to five private, plate-checked images flow, drafts, publish transition and own active listing management. Add storage provider, file safety, tenant isolation and publish constraint tests.
 
 The non-database implementation and local storage tests are complete. Migration `0004` and the gated Phase 2 PostgreSQL adversarial suite still require a disposable migrated PostgreSQL database before deployment.
 

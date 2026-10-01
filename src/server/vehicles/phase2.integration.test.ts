@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { and, count, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import sharp from "sharp";
 import { hasPermission } from "@/domain/authorization";
 import { auditLog, company, companyMembership, user, vehicleImage, vehicleListing } from "@/server/db/schema";
 import { setImageStorage, type PrivateImageStorage, type SupportedImageMime } from "@/server/storage/images";
+import { setPlateDetector } from "@/server/vehicles/plate-redaction";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const integration = describe.runIf(Boolean(testDatabaseUrl));
@@ -29,9 +31,11 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
   const viewerA = randomUUID();
   const traderB = randomUUID();
   const storage = new MemoryStorage();
-  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0xff, 0xd9]);
+  let jpeg: Uint8Array;
 
   beforeAll(async () => {
+    jpeg = await sharp({ create: { width: 8, height: 8, channels: 3, background: "white" } }).jpeg().toBuffer();
+    setPlateDetector({ detect: async () => [] });
     process.env.DATABASE_URL = testDatabaseUrl;
     setImageStorage(storage);
     const { getDb } = await import("@/server/db");
@@ -53,6 +57,7 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
   });
 
   afterAll(async () => {
+    setPlateDetector(undefined);
     if (!testDatabaseUrl) return;
     const { getDb } = await import("@/server/db");
     const db = getDb();
@@ -90,19 +95,21 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
     expect(draft).not.toHaveProperty("mileageKm");
   });
 
-  it("requires 3 images, publishes with 3, and rejects a fourth position", async () => {
+  it("requires at least 3 images, accepts 5, and rejects a sixth position", async () => {
     const { createDraft, publishListing, putListingImage } = await import("./listings");
     const draft = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(3000) });
     await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
-      .rejects.toMatchObject({ code: "THREE_IMAGES_REQUIRED" });
+      .rejects.toMatchObject({ code: "IMAGE_COUNT_REQUIRED" });
     for (const position of [1, 2] as const) {
       await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position, claimedMime: "image/jpeg", bytes: jpeg });
       await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
-        .rejects.toMatchObject({ code: "THREE_IMAGES_REQUIRED" });
+        .rejects.toMatchObject({ code: "IMAGE_COUNT_REQUIRED" });
     }
-    await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position: 3, claimedMime: "image/jpeg", bytes: jpeg });
+    for (const position of [3, 4, 5] as const) {
+      await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position, claimedMime: "image/jpeg", bytes: jpeg });
+    }
     await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
-      .resolves.toMatchObject({ status: "active", images: { length: 3 } });
+      .resolves.toMatchObject({ status: "active", images: { length: 5 } });
     const { updateOwnListing } = await import("./listings");
     await expect(updateOwnListing({
       companyId: companyA,
@@ -110,7 +117,7 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
       actorUserId: traderA,
       values: { mileageMil: 1 },
     })).rejects.toMatchObject({ code: "ACTIVE_LISTING_FIELDS_LOCKED" });
-    await expect(putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position: 4, claimedMime: "image/jpeg", bytes: jpeg }))
+    await expect(putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position: 6, claimedMime: "image/jpeg", bytes: jpeg }))
       .rejects.toMatchObject({ code: "INVALID_IMAGE_POSITION" });
   });
 
@@ -118,8 +125,8 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
     const { createDraft } = await import("./listings");
     const { getDb } = await import("@/server/db");
     const draft = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(4000) });
-    await getDb().insert(vehicleImage).values({ listingId: draft.id, position: 1, objectKey: randomUUID(), mimeType: "image/jpeg", byteSize: 6, checksumSha256: "a".repeat(64) });
-    await expect(getDb().insert(vehicleImage).values({ listingId: draft.id, position: 1, objectKey: randomUUID(), mimeType: "image/jpeg", byteSize: 6, checksumSha256: "b".repeat(64) }))
+    await getDb().insert(vehicleImage).values({ listingId: draft.id, position: 1, objectKey: randomUUID(), mimeType: "image/jpeg", byteSize: 6, checksumSha256: "a".repeat(64), sourceChecksumSha256: "a".repeat(64) });
+    await expect(getDb().insert(vehicleImage).values({ listingId: draft.id, position: 1, objectKey: randomUUID(), mimeType: "image/jpeg", byteSize: 6, checksumSha256: "b".repeat(64), sourceChecksumSha256: "b".repeat(64) }))
       .rejects.toMatchObject({ code: "23505" });
   });
 

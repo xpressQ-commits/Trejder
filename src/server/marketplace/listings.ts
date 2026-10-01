@@ -136,7 +136,10 @@ export async function listMarketplaceListings(input: {
     listingId: vehicleImage.listingId,
     position: vehicleImage.position,
   }).from(vehicleImage)
-    .where(inArray(vehicleImage.listingId, page.map(({ id }) => id)))
+    .where(and(
+      inArray(vehicleImage.listingId, page.map(({ id }) => id)),
+      inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
+    ))
     .orderBy(asc(vehicleImage.position));
   return {
     listings: page.map((row) => toDto(row, images.filter((image) => image.listingId === row.id))),
@@ -157,7 +160,10 @@ export async function getMarketplaceListing(
   )).limit(1);
   if (!row?.publishedAt) throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
   const images = await db.select({ position: vehicleImage.position }).from(vehicleImage)
-    .where(eq(vehicleImage.listingId, row.id)).orderBy(asc(vehicleImage.position));
+    .where(and(
+      eq(vehicleImage.listingId, row.id),
+      inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
+    )).orderBy(asc(vehicleImage.position));
   return toDto(row as MarketplaceRow, images);
 }
 
@@ -172,6 +178,7 @@ export async function readMarketplaceListingImage(input: {
   }).from(vehicleImage).innerJoin(vehicleListing, eq(vehicleListing.id, vehicleImage.listingId)).where(and(
     eq(vehicleImage.listingId, input.listingId),
     eq(vehicleImage.position, input.position),
+    inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
     eq(vehicleListing.status, "active"),
     ne(vehicleListing.sellerCompanyId, input.activeCompanyId),
     isNotNull(vehicleListing.publishedAt),

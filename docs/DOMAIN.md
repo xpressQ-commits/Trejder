@@ -7,7 +7,7 @@
 - **CompanyMembership:** connects one user to one company with `ADMIN`, `TRADER` or `VIEWER` authority and an active, suspended or revoked state.
 - **CompanyInvitation:** one-time, expiring invitation to a company and role.
 - **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag and server-controlled state.
-- **VehicleImage:** private object reference at position 1–3. Publication requires exactly three valid images.
+- **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 3–5 valid, completed image checks.
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.
 - **Match:** immutable result of accepting one bid, including amount and historical commercial terms.
 - **AuditLog:** append-only security and domain event record with sanitized metadata.
@@ -19,7 +19,7 @@
 - At most one pending invitation exists for the same normalized email and company.
 - A listing contains exactly one of registration number or vehicle model.
 - Mileage is a non-negative integer number of kilometres.
-- Image positions are 1–3 and unique per listing.
+- Image positions are 1–5 and unique per listing.
 - One company has at most one current bid per listing.
 - Bid aliases are unique within a listing.
 - A duplicated seller company key plus a composite foreign key lets PostgreSQL reject self-bidding.
@@ -28,13 +28,13 @@
 - A composite match-to-bid foreign key requires the accepted bid, listing, seller and buyer to agree.
 - Match amount and fee snapshots are integer öre; parties must differ and currency is SEK.
 
-Exactly three child images cannot be expressed with a simple check constraint. The publish transaction must count three validated images before changing the listing to active.
+The publish transaction requires 3–5 images and permits only `NO_PLATE_DETECTED` or `PLATE_REDACTED` before changing the listing to active.
 
 ## State transitions
 
 Listing:
 
-- `draft -> active`: ADMIN/TRADER of seller; complete required data and exactly three images.
+- `draft -> active`: ADMIN/TRADER of seller; complete required data and 3–5 plate-checked images.
 - `draft -> withdrawn`: ADMIN/TRADER of seller.
 - `active -> withdrawn`: ADMIN/TRADER of seller if no match exists.
 - `active -> matched`: only the bid acceptance transaction.
@@ -68,8 +68,8 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - `createDraft` derives seller company and creator from the active server context.
 - UI mileage is a whole number of Swedish mil. The server multiplies it by 10 and PostgreSQL enforces a non-negative whole-mil kilometre value no greater than 2,000,000 km.
 - Trader comments are required and limited to 500 characters.
-- A draft may be fully edited and may hold zero to three images.
-- Publishing locks the listing row, requires image positions 1, 2 and 3, and changes `draft -> active`. Repeated publication of the same active listing is idempotent.
+- A draft may be fully edited and may hold zero to five images.
+- Publishing locks the listing row, requires 3–5 completed plate checks, and changes `draft -> active`. Repeated publication of the same active listing is idempotent.
 - Active listings allow comment corrections and atomic image replacement only. Registration/model, mileage and VAT are locked; changing them requires withdrawal and a new listing.
 - `draft|active -> withdrawn` is allowed. Withdrawn is terminal.
 - ADMIN and TRADER mutate. VIEWER has own-company read access only.

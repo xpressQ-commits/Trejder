@@ -32,6 +32,14 @@ export const listingStatus = pgEnum("listing_status", [
   "matched",
   "withdrawn",
 ]);
+export const plateRedactionStatus = pgEnum("plate_redaction_status", [
+  "NOT_CHECKED",
+  "PROCESSING",
+  "NO_PLATE_DETECTED",
+  "PLATE_REDACTED",
+  "REVIEW_REQUIRED",
+  "FAILED",
+]);
 export const bidStatus = pgEnum("bid_status", ["active", "withdrawn", "accepted", "lost"]);
 
 export const company = pgTable("companies", {
@@ -159,11 +167,19 @@ export const vehicleImage = pgTable(
     mimeType: varchar("mime_type", { length: 100 }).notNull(),
     byteSize: integer("byte_size").notNull(),
     checksumSha256: varchar("checksum_sha256", { length: 64 }).notNull(),
+    sourceChecksumSha256: varchar("source_checksum_sha256", { length: 64 }).notNull(),
+    plateRedactionStatus: plateRedactionStatus("plate_redaction_status")
+      .notNull()
+      .default("NOT_CHECKED"),
+    plateConfidence: integer("plate_confidence"),
+    plateProcessedAt: timestamp("plate_processed_at", { withTimezone: true }),
+    plateProcessingError: varchar("plate_processing_error", { length: 120 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("vehicle_images_listing_position_uq").on(table.listingId, table.position),
-    check("vehicle_images_position_range", sql`${table.position} BETWEEN 1 AND 3`),
+    check("vehicle_images_position_range", sql`${table.position} BETWEEN 1 AND 5`),
+    check("vehicle_images_plate_confidence_range", sql`${table.plateConfidence} IS NULL OR ${table.plateConfidence} BETWEEN 0 AND 1000`),
     check("vehicle_images_byte_size_positive", sql`${table.byteSize} > 0`),
   ],
 );

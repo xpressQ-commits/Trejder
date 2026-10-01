@@ -10,7 +10,9 @@ import {
 } from "@/components/ui/form-controls";
 import type { OwnListing } from "./types";
 
-type ImageFiles = Partial<Record<1 | 2 | 3, File>>;
+const imagePositions = [1, 2, 3, 4, 5] as const;
+type ImagePosition = (typeof imagePositions)[number];
+type ImageFiles = Partial<Record<ImagePosition, File>>;
 
 export function VehicleListingForm({
   listing,
@@ -30,6 +32,7 @@ export function VehicleListingForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
+  const [imageProgress, setImageProgress] = useState<Partial<Record<ImagePosition, string>>>({});
 
   const immutable = listing?.status === "active";
   const terminal = listing?.status === "withdrawn" || listing?.status === "matched";
@@ -72,11 +75,13 @@ export function VehicleListingForm({
       listingId = responseBody.listing.id;
       setDraftId(listingId);
 
-      for (const position of [1, 2, 3] as const) {
+      for (const position of imagePositions) {
         const file = files[position];
         if (!file) continue;
+        setImageProgress((current) => ({ ...current, [position]: "Laddar upp bild…" }));
         const formData = new FormData();
         formData.set("image", file);
+        setImageProgress((current) => ({ ...current, [position]: "Kontrollerar registreringsnummer…" }));
         const upload = await fetch(`/api/company/listings/${listingId}/images/${position}`, {
           method: "PUT",
           body: formData,
@@ -85,6 +90,9 @@ export function VehicleListingForm({
           const uploadBody = (await upload.json().catch(() => null)) as { error?: string } | null;
           throw new Error(uploadBody?.error ?? "UPLOAD_FAILED");
         }
+        const uploadBody = (await upload.json()) as { listing: OwnListing };
+        const uploaded = uploadBody.listing.images.find((image) => image.position === position);
+        setImageProgress((current) => ({ ...current, [position]: redactionLabel(uploaded?.plateRedactionStatus) }));
       }
 
       if (action === "publish") {
@@ -109,7 +117,7 @@ export function VehicleListingForm({
     }
   }
 
-  async function removeImage(position: 1 | 2 | 3) {
+  async function removeImage(position: ImagePosition) {
     if (!listing || listing.status !== "draft" || !editable) return;
     setPending(true);
     setError(undefined);
@@ -175,9 +183,10 @@ export function VehicleListingForm({
       </fieldset>
 
       <fieldset disabled={!editable}>
-        <legend className="font-semibold">Bilder <span className="font-normal text-[var(--muted)]">— exakt 3 vid publicering</span></legend>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          {([1, 2, 3] as const).map((position) => {
+        <legend className="font-semibold">Bilder <span className="font-normal text-[var(--muted)]">— minst 3, högst 5 vid publicering</span></legend>
+        <p className="mt-2 text-sm font-medium text-[var(--primary)]">{new Set([...listing?.images.map((image) => image.position) ?? [], ...Object.keys(files).map(Number)]).size} av 5 bilder uppladdade eller valda</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {imagePositions.map((position) => {
             const existing = listing?.images.find((image) => image.position === position);
             const file = files[position];
             return <div key={position} className="overflow-hidden rounded-xl border border-[var(--border)] bg-slate-50">
@@ -191,6 +200,7 @@ export function VehicleListingForm({
               <div className="space-y-2 p-3">
                 {editable ? <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-white px-3 text-sm font-semibold hover:border-slate-400">{existing ? "Byt bild" : "Välj bild"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const selected = event.target.files?.[0]; if (selected) setFiles((current) => ({ ...current, [position]: selected })); }} /></label> : null}
                 {existing && listing?.status === "draft" && editable ? <button type="button" onClick={() => void removeImage(position)} className="min-h-11 w-full text-sm font-semibold text-[var(--danger)]">Ta bort</button> : null}
+                {(imageProgress[position] || existing) ? <p className="text-xs font-medium text-[var(--muted)]">{imageProgress[position] ?? redactionLabel(existing?.plateRedactionStatus)}</p> : null}
               </div>
             </div>;
           })}
@@ -208,9 +218,19 @@ export function VehicleListingForm({
 }
 
 function errorMessage(code: string) {
-  if (code === "THREE_IMAGES_REQUIRED") return "Exakt tre giltiga bilder krävs för publicering.";
+  if (code === "IMAGE_COUNT_REQUIRED") return "Minst tre och högst fem giltiga bilder krävs för publicering.";
+  if (code === "IMAGE_REDACTION_INCOMPLETE") return "Alla bilder måste vara kontrollerade. Byt bilden eller kontakta administratören om granskning krävs.";
   if (code === "INVALID_IMAGE_TYPE") return "Bilden är inte en giltig JPEG-, PNG- eller WebP-fil.";
   if (code === "INVALID_IMAGE_SIZE") return "Bilden är tom eller större än 10 MB.";
   if (code === "ACTIVE_LISTING_FIELDS_LOCKED") return "Reg/modell, miltal och moms är låsta efter publicering.";
   return "Det gick inte att spara bilen. Kontrollera uppgifterna och försök igen.";
+}
+
+function redactionLabel(status?: OwnListing["images"][number]["plateRedactionStatus"]) {
+  if (status === "PLATE_REDACTED") return "Registreringsnummer hittades och censurerades";
+  if (status === "NO_PLATE_DETECTED") return "Inget registreringsnummer hittades";
+  if (status === "REVIEW_REQUIRED") return "Kontrollen är osäker – granskning krävs";
+  if (status === "FAILED") return "Bildkontrollen misslyckades";
+  if (status === "PROCESSING") return "Kontrollerar registreringsnummer…";
+  return "Registreringsnumret är inte kontrollerat";
 }

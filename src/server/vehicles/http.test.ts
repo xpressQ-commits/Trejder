@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listingInputSchema } from "./http";
+import { listingInputSchema, parseImagePosition } from "./http";
 
 const valid = {
   identifier: { kind: "registration" as const, value: "ABC123" },
@@ -27,5 +27,13 @@ describe("vehicle listing transport contract", () => {
   it("rejects fractional and implausible Swedish mil", () => {
     expect(listingInputSchema.safeParse({ ...valid, mileageMil: 1.5 }).success).toBe(false);
     expect(listingInputSchema.safeParse({ ...valid, mileageMil: 200_001 }).success).toBe(false);
+  });
+});
+
+describe("image position contract", () => {
+  it("accepts positions one through five and rejects six", () => {
+    expect([1, 2, 3, 4, 5].map((position) => parseImagePosition(String(position))))
+      .toEqual([1, 2, 3, 4, 5]);
+    expect(() => parseImagePosition("6")).toThrowError(expect.objectContaining({ code: "IMAGE_NOT_FOUND" }));
   });
 });

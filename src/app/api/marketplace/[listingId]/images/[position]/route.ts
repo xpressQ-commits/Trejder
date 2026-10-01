@@ -13,7 +13,7 @@ export async function GET(
     const params = await route.params;
     if (!z.uuid().safeParse(params.listingId).success) throw new AccessError(404, "IMAGE_NOT_FOUND");
     const position = Number(params.position);
-    if (!Number.isInteger(position) || position < 1 || position > 3) throw new AccessError(404, "IMAGE_NOT_FOUND");
+    if (!Number.isInteger(position) || position < 1 || position > 5) throw new AccessError(404, "IMAGE_NOT_FOUND");
     const companyId = (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
     const context = await requireActiveCompanyContext(request.headers, companyId);
     const image = await readMarketplaceListingImage({
