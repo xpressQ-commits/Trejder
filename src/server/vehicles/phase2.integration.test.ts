@@ -3,7 +3,7 @@ import { and, count, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { hasPermission } from "@/domain/authorization";
-import { auditLog, company, companyMembership, user, vehicleImage, vehicleListing } from "@/server/db/schema";
+import { auditLog, company, companyMembership, platformAdmin, user, vehicleImage, vehicleListing } from "@/server/db/schema";
 import { setImageStorage, type PrivateImageStorage, type SupportedImageMime } from "@/server/storage/images";
 import { setPlateDetector } from "@/server/vehicles/plate-redaction";
 
@@ -28,6 +28,8 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
   const companyA = randomUUID();
   const companyB = randomUUID();
   const traderA = randomUUID();
+  const adminA = randomUUID();
+  const superAdminA = randomUUID();
   const viewerA = randomUUID();
   const traderB = randomUUID();
   const storage = new MemoryStorage();
@@ -42,6 +44,8 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
     const db = getDb();
     await db.insert(user).values([
       { id: traderA, name: "Trader A", email: `${traderA}@example.test`, emailVerified: true },
+      { id: adminA, name: "Admin A", email: `${adminA}@example.test`, emailVerified: true },
+      { id: superAdminA, name: "Superadmin A", email: `${superAdminA}@example.test`, emailVerified: true },
       { id: viewerA, name: "Viewer A", email: `${viewerA}@example.test`, emailVerified: true },
       { id: traderB, name: "Trader B", email: `${traderB}@example.test`, emailVerified: true },
     ]);
@@ -51,9 +55,12 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
     ]);
     await db.insert(companyMembership).values([
       { companyId: companyA, userId: traderA, role: "trader" },
+      { companyId: companyA, userId: adminA, role: "admin" },
+      { companyId: companyA, userId: superAdminA, role: "admin" },
       { companyId: companyA, userId: viewerA, role: "viewer" },
       { companyId: companyB, userId: traderB, role: "trader" },
     ]);
+    await db.insert(platformAdmin).values({ userId: superAdminA });
   });
 
   afterAll(async () => {
@@ -63,9 +70,10 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
     const db = getDb();
     await db.delete(auditLog).where(inArray(auditLog.actorCompanyId, [companyA, companyB]));
     await db.delete(vehicleListing).where(inArray(vehicleListing.sellerCompanyId, [companyA, companyB]));
+    await db.delete(platformAdmin).where(eq(platformAdmin.userId, superAdminA));
     await db.delete(companyMembership).where(inArray(companyMembership.companyId, [companyA, companyB]));
     await db.delete(company).where(inArray(company.id, [companyA, companyB]));
-    await db.delete(user).where(inArray(user.id, [traderA, viewerA, traderB]));
+    await db.delete(user).where(inArray(user.id, [traderA, adminA, superAdminA, viewerA, traderB]));
   });
 
   it("keeps Company B drafts unreadable and immutable to Company A", async () => {
@@ -119,6 +127,18 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
     })).rejects.toMatchObject({ code: "ACTIVE_LISTING_FIELDS_LOCKED" });
     await expect(putListingImage({ companyId: companyA, listingId: fiveImageDraft.id, actorUserId: traderA, position: 6, claimedMime: "image/jpeg", bytes: jpeg }))
       .rejects.toMatchObject({ code: "INVALID_IMAGE_POSITION" });
+  });
+
+  it("allows a company admin and a dual-authority platform superadmin to publish", async () => {
+    expect(hasPermission("admin", "listing:mutate")).toBe(true);
+    expect(hasPermission("viewer", "listing:mutate")).toBe(false);
+    const { createDraft, publishListing, putListingImage } = await import("./listings");
+    for (const actorUserId of [adminA, superAdminA]) {
+      const draft = await createDraft({ companyId: companyA, actorUserId, values: values(actorUserId === adminA ? 2100 : 2200) });
+      await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId, position: 1, claimedMime: "image/jpeg", bytes: jpeg });
+      await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId }))
+        .resolves.toMatchObject({ status: "active", images: { length: 1 } });
+    }
   });
 
   it("does not block publication when plate redaction is not configured", async () => {
