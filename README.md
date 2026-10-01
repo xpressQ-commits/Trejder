@@ -26,7 +26,7 @@ Dealer onboarding is closed. `provisionDealerCompany` is an internal service wit
 
 ## Platform administrator bootstrap
 
-After migrations, an operator may run `npm run admin:bootstrap` with `DATABASE_URL`, `TREJDER_ADMIN_EMAIL` and `TREJDER_ADMIN_PASSWORD` supplied through the runtime environment. The password must contain 12–128 characters, is hashed with Better Auth's credential hasher and is never printed or stored as plaintext. The command creates a verified credential user or promotes an existing user and is a no-op when that user is already a platform administrator.
+After migrations, an operator may run `npm run admin:bootstrap` with `DATABASE_URL`, `TREJDER_ADMIN_EMAIL` and `TREJDER_ADMIN_PASSWORD` supplied through the runtime environment. The password must contain 12–128 characters, is hashed with Better Auth's credential hasher and is never printed or stored as plaintext. The command creates a verified credential user or promotes an existing user. Supplying `TREJDER_ADMIN_COMPANY_NAME`, `TREJDER_ADMIN_COMPANY_ORGANIZATION_NUMBER`, and optionally `TREJDER_ADMIN_COMPANY_CONTACT_EMAIL` also attaches the platform administrator as the active administrator of that dealer company. The operation is idempotent; remove the bootstrap password from the runtime environment after the first successful run.
 
 Platform authority is separate from dealer membership: a dealer-company `ADMIN` manages only that company and is not an internal Trejder platform administrator. Never commit bootstrap credentials or run the command against the wrong database.
 

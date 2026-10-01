@@ -26,6 +26,10 @@ Authenticated dealer browsing and listing details with minimal filters. Prevent 
 
 The implementation and adversarial test coverage are complete in code. Migration `0005`, the full quality gate and the PostgreSQL integration suites still require execution in an environment with npm registry and disposable PostgreSQL access.
 
+## Operational platform administration (implemented in code)
+
+An explicitly bootstrapped platform administrator has a separate `/admin` surface for global company operations. It can create and edit dealer companies, suspend or reactivate company access, and change existing company memberships. All mutations require fresh platform authority, same-origin requests and audit records. Company removal is deliberately implemented as reversible suspension rather than destructive deletion.
+
 ## Phase 4 — Anonymous bidding
 
 Create/update/withdraw bid, listing-scoped bidder aliases and seller bid view. Ship only with anonymity contracts, IDOR tests, fee/amount mass-assignment tests and audit coverage.

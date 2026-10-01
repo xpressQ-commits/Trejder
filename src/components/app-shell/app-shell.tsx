@@ -1,16 +1,17 @@
-import { Building2, CarFront, Settings, Store, Users } from "lucide-react";
+import { Building2, CarFront, Settings, ShieldCheck, Store, Users } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CompanySwitcher, LogoutButton } from "@/components/app-shell/session-controls";
 
 type CompanyOption = { companyId: string; legalName: string };
 
-export function AppShell({ children, userName, companyName, companyId, role, companies }: { children: ReactNode; userName: string; companyName: string; companyId: string; role: "admin" | "trader" | "viewer"; companies: CompanyOption[] }) {
+export function AppShell({ children, userName, companyName, companyId, role, companies, isPlatformAdmin = false }: { children: ReactNode; userName: string; companyName: string; companyId: string; role: "admin" | "trader" | "viewer"; companies: CompanyOption[]; isPlatformAdmin?: boolean }) {
   const navigation = [
     { href: "/app/marknad", label: "Marknad", icon: Store },
     { href: "/app/bilar", label: "Mina bilar", icon: CarFront },
     { href: "/app/foretag", label: "Företag", icon: Building2 },
     ...(role === "admin" ? [{ href: "/app/anvandare", label: "Användare", icon: Users }] : []),
+    ...(isPlatformAdmin ? [{ href: "/admin", label: "Superadmin", icon: ShieldCheck }] : []),
     { href: "/app/installningar", label: "Inställningar", icon: Settings },
   ];
   return <div className="min-h-screen bg-[var(--background)] lg:grid lg:grid-cols-[16rem_1fr]">

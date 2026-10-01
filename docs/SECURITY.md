@@ -8,6 +8,8 @@ Every request derives the user from the server session and reloads an active com
 
 Platform administrators are held in a separate authority table and never inferred from the dealer-company `ADMIN` role. Bootstrap credentials are supplied only at runtime, hashed with Better Auth's credential hasher and never printed or committed.
 
+Global company and membership administration is exposed only below `/admin` and `/api/platform`. Every platform mutation revalidates the separate authority record, requires an exact same-origin request and writes an attributed audit event. Operational company removal uses suspension so tenant data and audit history are retained.
+
 `VIEWER` cannot mutate. `TRADER` can perform marketplace mutations but cannot manage the company or users. `ADMIN` can do both. Middleware and hidden controls may improve UX but never replace use-case authorization.
 
 ### Bid anonymity
