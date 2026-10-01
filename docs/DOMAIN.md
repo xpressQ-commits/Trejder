@@ -7,7 +7,7 @@
 - **CompanyMembership:** connects one user to one company with `ADMIN`, `TRADER` or `VIEWER` authority and an active, suspended or revoked state.
 - **CompanyInvitation:** one-time, expiring invitation to a company and role.
 - **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag and server-controlled state.
-- **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 3–5 valid, completed image checks.
+- **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 1–5 valid images; completed plate checks are required when redaction is configured.
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.
 - **Match:** immutable result of accepting one bid, including amount and historical commercial terms.
 - **AuditLog:** append-only security and domain event record with sanitized metadata.
@@ -28,13 +28,13 @@
 - A composite match-to-bid foreign key requires the accepted bid, listing, seller and buyer to agree.
 - Match amount and fee snapshots are integer öre; parties must differ and currency is SEK.
 
-The publish transaction requires 3–5 images and permits only `NO_PLATE_DETECTED` or `PLATE_REDACTED` before changing the listing to active.
+The publish transaction requires 1–5 images. When plate redaction is configured, it permits only `NO_PLATE_DETECTED` or `PLATE_REDACTED` before changing the listing to active.
 
 ## State transitions
 
 Listing:
 
-- `draft -> active`: ADMIN/TRADER of seller; complete required data and 3–5 plate-checked images.
+- `draft -> active`: ADMIN/TRADER of seller; complete required data and 1–5 images, plate-checked when the provider is configured.
 - `draft -> withdrawn`: ADMIN/TRADER of seller.
 - `active -> withdrawn`: ADMIN/TRADER of seller if no match exists.
 - `active -> matched`: only the bid acceptance transaction.
@@ -69,7 +69,7 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - UI mileage is a whole number of Swedish mil. The server multiplies it by 10 and PostgreSQL enforces a non-negative whole-mil kilometre value no greater than 2,000,000 km.
 - Trader comments are required and limited to 500 characters.
 - A draft may be fully edited and may hold zero to five images.
-- Publishing locks the listing row, requires 3–5 completed plate checks, and changes `draft -> active`. Repeated publication of the same active listing is idempotent.
+- Publishing locks the listing row, requires 1–5 images and changes `draft -> active`. Completed plate checks are enforced when redaction is configured. Repeated publication of the same active listing is idempotent.
 - Active listings allow comment corrections and atomic image replacement only. Registration/model, mileage and VAT are locked; changing them requires withdrawal and a new listing.
 - `draft|active -> withdrawn` is allowed. Withdrawn is terminal.
 - ADMIN and TRADER mutate. VIEWER has own-company read access only.

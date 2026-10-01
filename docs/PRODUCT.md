@@ -8,7 +8,7 @@ Trejder is a responsive Swedish dealer-to-dealer vehicle marketplace. It should 
 
 Publishing stays deliberately short:
 
-`Registration number OR vehicle model -> mileage -> short comment -> deductible VAT yes/no -> 3–5 checked images -> publish`
+`Vehicle model -> model year (1950 through next year) -> mileage -> short comment -> deductible VAT yes/no -> 1–5 images -> publish`
 
 There is no automatic vehicle lookup. Never invent specifications from a registration number or model.
 

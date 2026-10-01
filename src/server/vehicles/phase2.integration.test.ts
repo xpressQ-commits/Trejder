@@ -95,30 +95,52 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
     expect(draft).not.toHaveProperty("mileageKm");
   });
 
-  it("requires at least 3 images, accepts 5, and rejects a sixth position", async () => {
+  it("publishes with one image, accepts five, and rejects a sixth position", async () => {
     const { createDraft, publishListing, putListingImage } = await import("./listings");
-    const draft = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(3000) });
-    await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
+    const oneImageDraft = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(3000) });
+    await expect(publishListing({ companyId: companyA, listingId: oneImageDraft.id, actorUserId: traderA }))
       .rejects.toMatchObject({ code: "IMAGE_COUNT_REQUIRED" });
-    for (const position of [1, 2] as const) {
-      await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position, claimedMime: "image/jpeg", bytes: jpeg });
-      await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
-        .rejects.toMatchObject({ code: "IMAGE_COUNT_REQUIRED" });
+    await putListingImage({ companyId: companyA, listingId: oneImageDraft.id, actorUserId: traderA, position: 1, claimedMime: "image/jpeg", bytes: jpeg });
+    await expect(publishListing({ companyId: companyA, listingId: oneImageDraft.id, actorUserId: traderA }))
+      .resolves.toMatchObject({ status: "active", images: { length: 1 } });
+
+    const fiveImageDraft = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(3001) });
+    for (const position of [1, 2, 3, 4, 5] as const) {
+      await putListingImage({ companyId: companyA, listingId: fiveImageDraft.id, actorUserId: traderA, position, claimedMime: "image/jpeg", bytes: jpeg });
     }
-    for (const position of [3, 4, 5] as const) {
-      await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position, claimedMime: "image/jpeg", bytes: jpeg });
-    }
-    await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
+    await expect(publishListing({ companyId: companyA, listingId: fiveImageDraft.id, actorUserId: traderA }))
       .resolves.toMatchObject({ status: "active", images: { length: 5 } });
     const { updateOwnListing } = await import("./listings");
     await expect(updateOwnListing({
       companyId: companyA,
-      listingId: draft.id,
+      listingId: fiveImageDraft.id,
       actorUserId: traderA,
       values: { mileageMil: 1 },
     })).rejects.toMatchObject({ code: "ACTIVE_LISTING_FIELDS_LOCKED" });
-    await expect(putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position: 6, claimedMime: "image/jpeg", bytes: jpeg }))
+    await expect(putListingImage({ companyId: companyA, listingId: fiveImageDraft.id, actorUserId: traderA, position: 6, claimedMime: "image/jpeg", bytes: jpeg }))
       .rejects.toMatchObject({ code: "INVALID_IMAGE_POSITION" });
+  });
+
+  it("does not block publication when plate redaction is not configured", async () => {
+    const previousRequired = process.env.PLATE_REDACTION_REQUIRED;
+    const previousToken = process.env.PLATE_RECOGNIZER_API_TOKEN;
+    delete process.env.PLATE_REDACTION_REQUIRED;
+    delete process.env.PLATE_RECOGNIZER_API_TOKEN;
+    setPlateDetector(null);
+    try {
+      const { createDraft, publishListing, putListingImage } = await import("./listings");
+      const draft = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(3100) });
+      const uploaded = await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position: 1, claimedMime: "image/jpeg", bytes: jpeg });
+      expect(uploaded.images[0].plateRedactionStatus).toBe("NOT_CHECKED");
+      await expect(publishListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
+        .resolves.toMatchObject({ status: "active" });
+    } finally {
+      if (previousRequired === undefined) delete process.env.PLATE_REDACTION_REQUIRED;
+      else process.env.PLATE_REDACTION_REQUIRED = previousRequired;
+      if (previousToken === undefined) delete process.env.PLATE_RECOGNIZER_API_TOKEN;
+      else process.env.PLATE_RECOGNIZER_API_TOKEN = previousToken;
+      setPlateDetector({ detect: async () => [] });
+    }
   });
 
   it("enforces duplicate image positions in PostgreSQL", async () => {
@@ -170,7 +192,8 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
 
 function values(mileageMil: number) {
   return {
-    identifier: { kind: "registration" as const, value: `T${String(mileageMil).padStart(5, "0")}` },
+    identifier: { kind: "model" as const, value: `Testbil ${mileageMil}` },
+    modelYear: 2026,
     mileageMil,
     shortComment: "Integrationstest",
     deductibleVat: false,

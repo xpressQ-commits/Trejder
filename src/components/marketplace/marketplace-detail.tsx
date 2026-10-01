@@ -106,7 +106,7 @@ export function MarketplaceDetail({ listingId }: { listingId: string }) {
             {listing.identifier.value}
           </h1>
           <p className="mt-2 text-lg text-[var(--muted)]">
-            {formatMileage(listing.mileageMil)} mil
+            {listing.modelYear ? `${listing.modelYear} · ` : ""}{formatMileage(listing.mileageMil)} mil
           </p>
           <p className="mt-7 max-w-2xl whitespace-pre-wrap">
             {listing.shortComment}

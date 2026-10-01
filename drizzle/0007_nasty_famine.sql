@@ -1,0 +1,2 @@
+ALTER TABLE "vehicle_listings" ADD COLUMN "model_year" integer;--> statement-breakpoint
+ALTER TABLE "vehicle_listings" ADD CONSTRAINT "vehicle_listings_model_year_range" CHECK ("vehicle_listings"."model_year" IS NULL OR "vehicle_listings"."model_year" BETWEEN 1950 AND 3000);

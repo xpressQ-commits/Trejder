@@ -4,10 +4,8 @@ import { ACTIVE_COMPANY_COOKIE, requireCompanyPermission } from "@/server/compan
 import { AccessError } from "@/server/security";
 
 export const listingInputSchema = z.object({
-  identifier: z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("registration"), value: z.string().min(1).max(16) }).strict(),
-    z.object({ kind: z.literal("model"), value: z.string().min(1).max(160) }).strict(),
-  ]),
+  identifier: z.object({ kind: z.literal("model"), value: z.string().min(1).max(160) }).strict(),
+  modelYear: z.number().int().min(1950).max(new Date().getUTCFullYear() + 1),
   mileageMil: z.number().int().min(0).max(200_000),
   shortComment: z.string().min(1).max(500),
   deductibleVat: z.boolean(),

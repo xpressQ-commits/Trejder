@@ -25,6 +25,7 @@ describe("role permissions", () => {
   });
 
   it("lets admins manage members and company settings", () => {
+    expect(hasPermission("admin", "listing:mutate")).toBe(true);
     expect(hasPermission("admin", "members:manage")).toBe(true);
     expect(hasPermission("admin", "company:manage")).toBe(true);
   });

@@ -11,7 +11,7 @@ Attack at minimum:
 - two concurrent acceptance attempts and idempotent retries
 - stale sessions after membership/role changes
 - client attempts to set company, party, status, amount or platform fees
-- image upload, attach, plate-redaction status, access and 3–5 enforcement
+- image upload, attach, plate-redaction status, access and 1–5 enforcement
 - audit attribution and sensitive data leakage in errors/logs
 
 Use real PostgreSQL for constraints and concurrency. UI tests are supplemental. Do not silently repair architectural weaknesses; surface them to the lead.

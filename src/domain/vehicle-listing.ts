@@ -1,5 +1,17 @@
 export const MAX_LISTING_COMMENT_LENGTH = 500;
 export const MAX_MILEAGE_MIL = 200_000;
+export const MIN_MODEL_YEAR = 1950;
+
+export function maxModelYear(now = new Date()): number {
+  return now.getUTCFullYear() + 1;
+}
+
+export function normalizeModelYear(value: number, now = new Date()): number {
+  if (!Number.isSafeInteger(value) || value < MIN_MODEL_YEAR || value > maxModelYear(now)) {
+    throw new Error("INVALID_MODEL_YEAR");
+  }
+  return value;
+}
 
 export type VehicleIdentifier =
   | { kind: "registration"; value: string }

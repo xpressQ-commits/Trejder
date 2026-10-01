@@ -6,6 +6,7 @@ export type OwnListing = {
   id: string;
   identifier: ListingIdentifier;
   mileageMil: number;
+  modelYear: number | null;
   shortComment: string;
   deductibleVat: boolean;
   status: ListingStatus;
@@ -21,6 +22,7 @@ export function serializeOwnListing(listing: {
   id: string;
   identifier: ListingIdentifier;
   mileageMil: number;
+  modelYear: number | null;
   shortComment: string;
   deductibleVat: boolean;
   status: ListingStatus;

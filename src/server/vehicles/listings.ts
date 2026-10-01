@@ -4,6 +4,7 @@ import {
   canEditActiveListingFields,
   MAX_LISTING_COMMENT_LENGTH,
   normalizeIdentifier,
+  normalizeModelYear,
   normalizeMileageMil,
   type VehicleIdentifier,
 } from "@/domain/vehicle-listing";
@@ -23,6 +24,7 @@ export type OwnListingDto = {
   id: string;
   identifier: VehicleIdentifier;
   mileageMil: number;
+  modelYear: number | null;
   shortComment: string;
   deductibleVat: boolean;
   status: ListingStatus;
@@ -40,7 +42,8 @@ export type OwnListingDto = {
 };
 
 export type ListingInput = {
-  identifier: VehicleIdentifier;
+  identifier: Extract<VehicleIdentifier, { kind: "model" }>;
+  modelYear: number;
   mileageMil: number;
   shortComment: string;
   deductibleVat: boolean;
@@ -55,18 +58,23 @@ function normalizeComment(value: string): string {
 }
 
 function normalizedListingValues(input: ListingInput) {
-  let identifier: VehicleIdentifier;
+  let identifier: Extract<VehicleIdentifier, { kind: "model" }>;
   let mileageKm: number;
+  let modelYear: number;
   try {
-    identifier = normalizeIdentifier(input.identifier);
+    const normalized = normalizeIdentifier(input.identifier);
+    if (normalized.kind !== "model") throw new Error("INVALID_IDENTIFIER");
+    identifier = normalized;
     mileageKm = normalizeMileageMil(input.mileageMil);
+    modelYear = normalizeModelYear(input.modelYear);
   } catch {
     throw new AccessError(400, "INVALID_LISTING_INPUT");
   }
   return {
-    inputKind: identifier.kind,
-    registrationNumber: identifier.kind === "registration" ? identifier.value : null,
-    vehicleModel: identifier.kind === "model" ? identifier.value : null,
+    inputKind: "model" as const,
+    registrationNumber: null,
+    vehicleModel: identifier.value,
+    modelYear,
     mileageKm,
     shortComment: normalizeComment(input.shortComment),
     deductibleVat: input.deductibleVat,
@@ -94,6 +102,7 @@ function toDto(
     id: row.id,
     identifier: rowIdentifier(row),
     mileageMil: row.mileageKm / 10,
+    modelYear: row.modelYear,
     shortComment: row.shortComment,
     deductibleVat: row.deductibleVat,
     status: row.status,
@@ -194,16 +203,24 @@ export async function updateOwnListing(input: {
 
     const update: Partial<typeof vehicleListing.$inferInsert> = {};
     if (input.values.identifier) {
-      let identifier: VehicleIdentifier;
-      try { identifier = normalizeIdentifier(input.values.identifier); }
+      let identifier: Extract<VehicleIdentifier, { kind: "model" }>;
+      try {
+        const normalized = normalizeIdentifier(input.values.identifier);
+        if (normalized.kind !== "model") throw new Error("INVALID_IDENTIFIER");
+        identifier = normalized;
+      }
       catch { throw new AccessError(400, "INVALID_IDENTIFIER"); }
-      update.inputKind = identifier.kind;
-      update.registrationNumber = identifier.kind === "registration" ? identifier.value : null;
-      update.vehicleModel = identifier.kind === "model" ? identifier.value : null;
+      update.inputKind = "model";
+      update.registrationNumber = null;
+      update.vehicleModel = identifier.value;
     }
     if (input.values.mileageMil !== undefined) {
       try { update.mileageKm = normalizeMileageMil(input.values.mileageMil); }
       catch { throw new AccessError(400, "INVALID_MILEAGE"); }
+    }
+    if (input.values.modelYear !== undefined) {
+      try { update.modelYear = normalizeModelYear(input.values.modelYear); }
+      catch { throw new AccessError(400, "INVALID_MODEL_YEAR"); }
     }
     if (input.values.shortComment !== undefined) update.shortComment = normalizeComment(input.values.shortComment);
     if (input.values.deductibleVat !== undefined) update.deductibleVat = input.values.deductibleVat;
@@ -237,10 +254,11 @@ export async function publishListing(input: {
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
     if (listing.status === "active") return;
     if (listing.status !== "draft") throw new AccessError(409, "INVALID_LISTING_TRANSITION");
+    if (listing.modelYear === null) throw new AccessError(409, "MODEL_YEAR_REQUIRED");
     const images = await tx.select({ status: vehicleImage.plateRedactionStatus }).from(vehicleImage)
       .where(eq(vehicleImage.listingId, listing.id));
-    if (images.length < 3 || images.length > 5) throw new AccessError(409, "IMAGE_COUNT_REQUIRED");
-    if (images.some((image) => !["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status))) {
+    if (images.length < 1 || images.length > 5) throw new AccessError(409, "IMAGE_COUNT_REQUIRED");
+    if (isPlateRedactionRequired() && images.some((image) => !["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status))) {
       throw new AccessError(409, "IMAGE_REDACTION_INCOMPLETE");
     }
     await tx.update(vehicleListing).set({ status: "active", publishedAt: new Date(), updatedAt: new Date() })
@@ -450,4 +468,9 @@ export async function readOwnListingImage(input: {
 
 export function canMutateListings(role: Role): boolean {
   return role === "admin" || role === "trader";
+}
+
+export function isPlateRedactionRequired(): boolean {
+  return process.env.PLATE_REDACTION_REQUIRED === "true"
+    || Boolean(process.env.PLATE_RECOGNIZER_API_TOKEN?.trim());
 }

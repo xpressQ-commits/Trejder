@@ -50,6 +50,13 @@
       "when": 1790871179346,
       "tag": "0006_uneven_annihilus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790873597183,
+      "tag": "0007_nasty_famine",
+      "breakpoints": true
     }
   ]
 }

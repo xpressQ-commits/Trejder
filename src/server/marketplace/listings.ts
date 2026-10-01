@@ -15,6 +15,7 @@ export type MarketplaceListingSummaryDto = {
   id: string;
   identifier: VehicleIdentifier;
   mileageMil: number;
+  modelYear: number | null;
   shortComment: string;
   deductibleVat: boolean;
   publishedAt: Date;
@@ -57,6 +58,7 @@ type MarketplaceRow = {
   registrationNumber: string | null;
   vehicleModel: string | null;
   mileageKm: number;
+  modelYear: number | null;
   shortComment: string;
   deductibleVat: boolean;
   publishedAt: Date;
@@ -70,6 +72,7 @@ function toDto(row: MarketplaceRow, images: Array<{ position: number }>): Market
     id: row.id,
     identifier: identifier(row),
     mileageMil: row.mileageKm / 10,
+    modelYear: row.modelYear,
     shortComment: row.shortComment,
     deductibleVat: row.deductibleVat,
     publishedAt: row.publishedAt,
@@ -86,6 +89,7 @@ const marketplaceSelection = {
   registrationNumber: vehicleListing.registrationNumber,
   vehicleModel: vehicleListing.vehicleModel,
   mileageKm: vehicleListing.mileageKm,
+  modelYear: vehicleListing.modelYear,
   shortComment: vehicleListing.shortComment,
   deductibleVat: vehicleListing.deductibleVat,
   publishedAt: vehicleListing.publishedAt,

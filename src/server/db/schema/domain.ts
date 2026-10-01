@@ -127,6 +127,7 @@ export const vehicleListing = pgTable(
     inputKind: listingInputKind("input_kind").notNull(),
     registrationNumber: varchar("registration_number", { length: 16 }),
     vehicleModel: varchar("vehicle_model", { length: 160 }),
+    modelYear: integer("model_year"),
     mileageKm: integer("mileage_km").notNull(),
     shortComment: varchar("short_comment", { length: 500 }).notNull(),
     deductibleVat: boolean("deductible_vat").notNull(),
@@ -148,6 +149,7 @@ export const vehicleListing = pgTable(
       sql`${table.mileageKm} <= 2000000 AND ${table.mileageKm} % 10 = 0`,
     ),
     check("vehicle_listings_version_positive", sql`${table.version} > 0`),
+    check("vehicle_listings_model_year_range", sql`${table.modelYear} IS NULL OR ${table.modelYear} BETWEEN 1950 AND 3000`),
     check(
       "vehicle_listings_identifier_matches_kind",
       sql`(${table.inputKind} = 'registration' AND ${table.registrationNumber} IS NOT NULL AND ${table.vehicleModel} IS NULL) OR (${table.inputKind} = 'model' AND ${table.vehicleModel} IS NOT NULL AND ${table.registrationNumber} IS NULL)`,

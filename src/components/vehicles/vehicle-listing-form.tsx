@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   FormMessage,
   inputClassName,
@@ -12,7 +12,6 @@ import type { OwnListing } from "./types";
 
 const imagePositions = [1, 2, 3, 4, 5] as const;
 type ImagePosition = (typeof imagePositions)[number];
-type ImageFiles = Partial<Record<ImagePosition, File>>;
 
 export function VehicleListingForm({
   listing,
@@ -22,13 +21,13 @@ export function VehicleListingForm({
   canMutate?: boolean;
 }) {
   const router = useRouter();
-  const [kind, setKind] = useState<"registration" | "model">(listing?.identifier.kind ?? "registration");
-  const [identifier, setIdentifier] = useState(listing?.identifier.value ?? "");
+  const [model, setModel] = useState(listing?.identifier.kind === "model" ? listing.identifier.value : "");
+  const [modelYear, setModelYear] = useState(listing?.modelYear ? String(listing.modelYear) : "");
   const [mileage, setMileage] = useState(listing ? String(listing.mileageMil) : "");
   const [comment, setComment] = useState(listing?.shortComment ?? "");
   const [vat, setVat] = useState(listing?.deductibleVat ?? false);
   const [draftId, setDraftId] = useState(listing?.id);
-  const [files, setFiles] = useState<ImageFiles>({});
+  const [files, setFiles] = useState<File[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
@@ -37,6 +36,9 @@ export function VehicleListingForm({
   const immutable = listing?.status === "active";
   const terminal = listing?.status === "withdrawn" || listing?.status === "matched";
   const editable = canMutate && !terminal;
+  const selectedPositions = imagePositions
+    .filter((position) => !listing?.images.some((image) => image.position === position))
+    .slice(0, files.length);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,8 +46,17 @@ export function VehicleListingForm({
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const action = submitter?.value === "publish" ? "publish" : "save";
     const mileageMil = Number(mileage);
+    const parsedModelYear = Number(modelYear);
+    if (!Number.isSafeInteger(parsedModelYear) || parsedModelYear < 1950 || parsedModelYear > new Date().getFullYear() + 1) {
+      setError("Årsmodell måste väljas.");
+      return;
+    }
     if (!Number.isSafeInteger(mileageMil) || mileageMil < 0) {
       setError("Miltal måste vara ett heltal.");
+      return;
+    }
+    if (action === "publish" && (listing?.images.length ?? 0) + files.length < 1) {
+      setError("Minst en bild krävs för publicering.");
       return;
     }
     setPending(true);
@@ -57,7 +68,8 @@ export function VehicleListingForm({
       const body = immutable
         ? { shortComment: comment }
         : {
-            identifier: { kind, value: identifier },
+            identifier: { kind: "model", value: model },
+            modelYear: parsedModelYear,
             mileageMil,
             shortComment: comment,
             deductibleVat: vat,
@@ -75,9 +87,11 @@ export function VehicleListingForm({
       listingId = responseBody.listing.id;
       setDraftId(listingId);
 
-      for (const position of imagePositions) {
-        const file = files[position];
-        if (!file) continue;
+      let workingListing = responseBody.listing;
+      const openPositions = imagePositions.filter((position) => !workingListing.images.some((image) => image.position === position));
+      for (const [index, file] of files.entries()) {
+        const position = openPositions[index];
+        if (!position) throw new Error("IMAGE_LIMIT_EXCEEDED");
         setImageProgress((current) => ({ ...current, [position]: "Laddar upp bild…" }));
         const formData = new FormData();
         formData.set("image", file);
@@ -91,6 +105,7 @@ export function VehicleListingForm({
           throw new Error(uploadBody?.error ?? "UPLOAD_FAILED");
         }
         const uploadBody = (await upload.json()) as { listing: OwnListing };
+        workingListing = uploadBody.listing;
         const uploaded = uploadBody.listing.images.find((image) => image.position === position);
         setImageProgress((current) => ({ ...current, [position]: redactionLabel(uploaded?.plateRedactionStatus) }));
       }
@@ -103,7 +118,7 @@ export function VehicleListingForm({
         }
       }
 
-      setFiles({});
+      setFiles([]);
       if (!listing || action === "publish") {
         router.push(`/app/bilar/${listingId}`);
       }
@@ -148,23 +163,32 @@ export function VehicleListingForm({
     }
   }
 
+  function addSelectedFiles(selected: File[]) {
+    const room = 5 - (listing?.images.length ?? 0) - files.length;
+    if (room <= 0) {
+      setError("Max 5 bilder är tillåtna.");
+      return;
+    }
+    const accepted = selected.slice(0, room);
+    setFiles((current) => [...current, ...accepted]);
+    setError(selected.length > room ? `Max 5 bilder är tillåtna. ${selected.length - room} bild${selected.length - room === 1 ? "" : "er"} lades inte till.` : undefined);
+  }
+
   return (
     <form onSubmit={submit} className="space-y-7 rounded-2xl border border-[var(--border)] bg-white p-5 sm:p-7">
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
       {success ? <FormMessage type="success">{success}</FormMessage> : null}
 
-      <fieldset disabled={!editable || immutable}>
-        <legend className="font-semibold">Regnr eller modell</legend>
-        <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
-          {(["registration", "model"] as const).map((value) => (
-            <label key={value} className={`flex min-h-11 cursor-pointer items-center justify-center rounded-md px-3 text-sm font-semibold ${kind === value ? "bg-white shadow-sm" : "text-[var(--muted)]"}`}>
-              <input type="radio" name="kind" value={value} checked={kind === value} onChange={() => setKind(value)} className="sr-only" />
-              {value === "registration" ? "Registreringsnummer" : "Modell"}
-            </label>
-          ))}
-        </div>
-        <input aria-label={kind === "registration" ? "Registreringsnummer" : "Modell"} value={identifier} onChange={(event) => setIdentifier(event.target.value)} maxLength={kind === "registration" ? 16 : 160} placeholder={kind === "registration" ? "ABC123" : "BMW M340i xDrive 2022"} className={inputClassName} required />
-      </fieldset>
+      <label className="block font-semibold">Bilmodell
+        <input aria-label="Bilmodell" value={model} onChange={(event) => setModel(event.target.value)} disabled={!editable || immutable} maxLength={160} placeholder="BMW M340i xDrive" className={inputClassName} required />
+      </label>
+
+      <label className="block font-semibold">Årsmodell
+        <select aria-label="Årsmodell" value={modelYear} onChange={(event) => setModelYear(event.target.value)} disabled={!editable || immutable} className={inputClassName} required>
+          <option value="">Välj årsmodell</option>
+          {modelYears().map((year) => <option key={year} value={year}>{year}</option>)}
+        </select>
+      </label>
 
       <label className="block font-semibold">Miltal <span className="font-normal text-[var(--muted)]">(mil)</span>
         <input type="number" inputMode="numeric" min={0} max={200000} step={1} value={mileage} onChange={(event) => setMileage(event.target.value)} disabled={!editable || immutable} placeholder="6430" className={inputClassName} required />
@@ -182,28 +206,21 @@ export function VehicleListingForm({
         </div>
       </fieldset>
 
-      <fieldset disabled={!editable}>
-        <legend className="font-semibold">Bilder <span className="font-normal text-[var(--muted)]">— minst 3, högst 5 vid publicering</span></legend>
-        <p className="mt-2 text-sm font-medium text-[var(--primary)]">{new Set([...listing?.images.map((image) => image.position) ?? [], ...Object.keys(files).map(Number)]).size} av 5 bilder uppladdade eller valda</p>
+      <fieldset disabled={!editable || immutable}>
+        <legend className="font-semibold">Bilder <span className="font-normal text-[var(--muted)]">— minst 1, högst 5 vid publicering</span></legend>
+        {editable && !immutable ? <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2.5 font-semibold text-white hover:bg-[var(--primary-hover)]">+ Lägg till bilder<input aria-label="Lägg till bilder" type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(event) => { addSelectedFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = ""; }} /></label> : null}
+        <p className="mt-3 text-sm font-medium text-[var(--primary)]">{(listing?.images.length ?? 0) + files.length} av 5 bilder valda</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {imagePositions.map((position) => {
-            const existing = listing?.images.find((image) => image.position === position);
-            const file = files[position];
-            return <div key={position} className="overflow-hidden rounded-xl border border-[var(--border)] bg-slate-50">
-              <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-slate-100">
-                {file ? <p className="break-all px-3 text-center text-sm font-medium">{file.name}</p> : existing ? (
-                  // Image is served by a tenant-authorized private route.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={existing.url} alt={`Fordonsbild ${position}`} className="h-full w-full object-cover" />
-                ) : <span className="text-sm text-[var(--muted)]">Bild {position}</span>}
-              </div>
-              <div className="space-y-2 p-3">
-                {editable ? <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-white px-3 text-sm font-semibold hover:border-slate-400">{existing ? "Byt bild" : "Välj bild"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const selected = event.target.files?.[0]; if (selected) setFiles((current) => ({ ...current, [position]: selected })); }} /></label> : null}
-                {existing && listing?.status === "draft" && editable ? <button type="button" onClick={() => void removeImage(position)} className="min-h-11 w-full text-sm font-semibold text-[var(--danger)]">Ta bort</button> : null}
-                {(imageProgress[position] || existing) ? <p className="text-xs font-medium text-[var(--muted)]">{imageProgress[position] ?? redactionLabel(existing?.plateRedactionStatus)}</p> : null}
-              </div>
-            </div>;
-          })}
+          {[...(listing?.images ?? [])].sort((a, b) => a.position - b.position).map((existing) => <div key={existing.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-slate-50">
+            <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+              {/* Image is served by a tenant-authorized private route. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={existing.url} alt={`Fordonsbild ${existing.position}`} className="h-full w-full object-cover" />
+            </div>
+            <div className="space-y-2 p-3"><p className="text-sm font-semibold">Bild {existing.position}</p>{listing?.status === "draft" && editable ? <button type="button" onClick={() => void removeImage(existing.position as ImagePosition)} className="min-h-11 w-full text-sm font-semibold text-[var(--danger)]">Ta bort</button> : null}<p className="text-xs font-medium text-[var(--muted)]">{imageProgress[existing.position as ImagePosition] ?? redactionLabel(existing.plateRedactionStatus)}</p></div>
+          </div>)}
+          {files.map((file, index) => <SelectedImagePreview key={`${file.name}-${file.lastModified}-${index}`} file={file} position={selectedPositions[index] ?? index + 1} onRemove={() => setFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))} />)}
+          {Array.from({ length: Math.max(0, 5 - (listing?.images.length ?? 0) - files.length) }, (_, index) => <div key={`empty-${index}`} className="flex aspect-[4/3] items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-slate-50 text-sm text-[var(--muted)]">Ledig bildplats</div>)}
         </div>
         <p className="mt-2 text-xs text-[var(--muted)]">JPEG, PNG eller WebP. Högst 10 MB per bild.</p>
       </fieldset>
@@ -218,12 +235,37 @@ export function VehicleListingForm({
 }
 
 function errorMessage(code: string) {
-  if (code === "IMAGE_COUNT_REQUIRED") return "Minst tre och högst fem giltiga bilder krävs för publicering.";
+  if (code === "MODEL_YEAR_REQUIRED" || code === "INVALID_MODEL_YEAR") return "Årsmodell måste väljas.";
+  if (code === "IMAGE_COUNT_REQUIRED") return "Minst en och högst fem giltiga bilder krävs för publicering.";
+  if (code === "IMAGE_LIMIT_EXCEEDED" || code === "INVALID_IMAGE_POSITION") return "Max 5 bilder är tillåtna.";
   if (code === "IMAGE_REDACTION_INCOMPLETE") return "Alla bilder måste vara kontrollerade. Byt bilden eller kontakta administratören om granskning krävs.";
   if (code === "INVALID_IMAGE_TYPE") return "Bilden är inte en giltig JPEG-, PNG- eller WebP-fil.";
   if (code === "INVALID_IMAGE_SIZE") return "Bilden är tom eller större än 10 MB.";
-  if (code === "ACTIVE_LISTING_FIELDS_LOCKED") return "Reg/modell, miltal och moms är låsta efter publicering.";
+  if (code === "ACTIVE_LISTING_FIELDS_LOCKED") return "Bilmodell, årsmodell, miltal och moms är låsta efter publicering.";
+  if (code === "INVALID_LISTING_INPUT" || code === "INVALID_IDENTIFIER") return "Kontrollera bilmodell, årsmodell och övriga obligatoriska uppgifter.";
+  if (code === "FORBIDDEN" || code === "ACTIVE_MEMBERSHIP_REQUIRED") return "Du saknar behörighet att publicera bilen.";
+  if (code === "UPLOAD_FAILED") return "En bild kunde inte laddas upp.";
   return "Det gick inte att spara bilen. Kontrollera uppgifterna och försök igen.";
+}
+
+function modelYears() {
+  const years: number[] = [];
+  for (let year = new Date().getFullYear() + 1; year >= 1950; year -= 1) years.push(year);
+  return years;
+}
+
+function SelectedImagePreview({ file, position, onRemove }: { file: File; position: number; onRemove: () => void }) {
+  const [previewUrl] = useState(() => URL.createObjectURL(file));
+  useEffect(() => {
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+  return <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-slate-50">
+    <div className="aspect-[4/3] overflow-hidden bg-slate-100">{previewUrl ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={previewUrl} alt={`Förhandsvisning av bild ${position}`} className="h-full w-full object-cover" />
+    ) : null}</div>
+    <div className="space-y-2 p-3"><p className="truncate text-sm font-semibold">Bild {position} · {file.name}</p><button type="button" onClick={onRemove} className="min-h-11 w-full text-sm font-semibold text-[var(--danger)]">Ta bort</button><p className="text-xs text-[var(--muted)]">Redo att laddas upp</p></div>
+  </div>;
 }
 
 function redactionLabel(status?: OwnListing["images"][number]["plateRedactionStatus"]) {
