@@ -201,7 +201,7 @@ export function PlatformCompanyAdmin({
       {message ? (
         <FormMessage type={message.type}>{message.text}</FormMessage>
       ) : null}
-      <section className="rounded-2xl border border-[var(--border)] bg-white p-5 sm:p-6">
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
         <h2 className="text-xl font-semibold">Lägg till företag</h2>
         <form
           onSubmit={createCompany}
@@ -242,7 +242,7 @@ export function PlatformCompanyAdmin({
           {companies.map((company) => (
             <li
               key={company.id}
-              className="rounded-2xl border border-[var(--border)] bg-white p-5"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -271,7 +271,7 @@ export function PlatformCompanyAdmin({
         </ul>
       </section>
       {selected ? (
-        <section className="space-y-7 rounded-2xl border border-[var(--border)] bg-white p-5 sm:p-6">
+        <section className="space-y-7 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
           <div>
             <h2 className="text-xl font-semibold">
               Hantera {selected.legalName}
@@ -317,7 +317,7 @@ export function PlatformCompanyAdmin({
               {selected.status === "active" ? (
                 <button
                   type="button"
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2.5 font-semibold text-[var(--danger)] hover:bg-red-50"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2.5 font-semibold text-[var(--danger)] hover:bg-[var(--danger-surface)]"
                   onClick={() => void setCompanyStatus("suspended")}
                 >
                   Pausa företag
@@ -382,7 +382,7 @@ export function PlatformCompanyAdmin({
                           </button>
                           <button
                             type="button"
-                            className="min-h-11 rounded-lg px-3 font-semibold text-[var(--danger)] hover:bg-red-50"
+                            className="min-h-11 rounded-lg px-3 font-semibold text-[var(--danger)] hover:bg-[var(--danger-surface)]"
                             onClick={() =>
                               void updateMember(member, { status: "revoked" })
                             }

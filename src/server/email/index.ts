@@ -1,5 +1,6 @@
 import { renderInviteEmail } from "./templates/invite";
 import { renderPrivateRegistrationEmail } from "./templates/private-registration";
+import type { Locale } from "@/i18n/config";
 
 export type TransactionalMessage = {
   from?: string;
@@ -82,11 +83,11 @@ export function getEmailTransport(): EmailTransport {
     : new UnconfiguredProductionTransport();
 }
 
-export async function sendInvitationEmail(input: { email: string; token: string; from?: string }): Promise<void> {
+export async function sendInvitationEmail(input: { email: string; token: string; from?: string; locale?: Locale }): Promise<void> {
   const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
   const url = new URL(`/inbjudan/${encodeURIComponent(input.token)}`, baseUrl);
   const logoUrl = new URL("/brand/trejder-email.png", baseUrl);
-  const message = renderInviteEmail({ inviteUrl: url.toString(), logoUrl: logoUrl.toString() });
+  const message = renderInviteEmail({ inviteUrl: url.toString(), logoUrl: logoUrl.toString(), locale: input.locale });
   await getEmailTransport().send({
     from: input.from,
     to: input.email,

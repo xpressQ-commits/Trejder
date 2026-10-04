@@ -4,11 +4,13 @@ import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { primaryButtonClassName, secondaryButtonClassName } from "@/components/ui/form-controls";
+import { usePreferences } from "@/components/preferences/preferences-provider";
 
 type CompanyOption = { companyId: string; legalName: string };
 
 export function LogoutButton({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
+  const { t } = usePreferences();
   const [pending, setPending] = useState(false);
   async function logout() {
     setPending(true);
@@ -17,11 +19,12 @@ export function LogoutButton({ compact = false }: { compact?: boolean }) {
       router.refresh();
     }
   }
-  return <button type="button" onClick={logout} disabled={pending} className={compact ? "inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-semibold hover:bg-white/10" : secondaryButtonClassName}><LogOut aria-hidden="true" size={18} />{pending ? "Loggar ut…" : "Logga ut"}</button>;
+  return <button type="button" onClick={logout} disabled={pending} className={compact ? "inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-semibold hover:bg-[var(--surface)]/10" : secondaryButtonClassName}><LogOut aria-hidden="true" size={18} />{pending ? t("session.loggingOut") : t("session.logout")}</button>;
 }
 
 export function CompanySwitcher({ companies, selectedCompanyId }: { companies: CompanyOption[]; selectedCompanyId: string }) {
   const router = useRouter();
+  const { t } = usePreferences();
   const [pending, setPending] = useState(false);
   async function change(companyId: string) {
     setPending(true);
@@ -33,7 +36,7 @@ export function CompanySwitcher({ companies, selectedCompanyId }: { companies: C
     else setPending(false);
   }
   if (companies.length < 2) return null;
-  return <label className="block text-xs font-medium text-white/65">Aktivt företag<select aria-label="Aktivt företag" disabled={pending} value={selectedCompanyId} onChange={(event) => void change(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-white/20 bg-[#173d37] px-3 text-sm font-semibold text-white">{companies.map((company) => <option key={company.companyId} value={company.companyId}>{company.legalName}</option>)}</select></label>;
+  return <label className="block text-xs font-medium text-white/65">{t("session.activeCompany")}<select aria-label={t("session.activeCompany")} disabled={pending} value={selectedCompanyId} onChange={(event) => void change(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-white/20 bg-[var(--sidebar-input)] px-3 text-sm font-semibold text-white">{companies.map((company) => <option key={company.companyId} value={company.companyId}>{company.legalName}</option>)}</select></label>;
 }
 
 export function SelectCompany({ companies }: { companies: CompanyOption[] }) {

@@ -92,6 +92,13 @@
       "when": 1791152491713,
       "tag": "0012_brave_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791154714228,
+      "tag": "0013_brown_omega_flight",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,11 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  varchar,
 } from "drizzle-orm/pg-core";
+
+export const themePreference = ["system", "light", "dark"] as const;
+export const localePreference = ["sv", "en"] as const;
 
 export const user = pgTable("users", {
   id: text("id").primaryKey(),
@@ -14,6 +18,8 @@ export const user = pgTable("users", {
   email: text("email").notNull(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  themePreference: varchar("theme_preference", { length: 10 }).notNull().default("system").$type<(typeof themePreference)[number]>(),
+  preferredLocale: varchar("preferred_locale", { length: 5 }).notNull().default("sv").$type<(typeof localePreference)[number]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

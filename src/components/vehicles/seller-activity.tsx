@@ -114,7 +114,7 @@ export function SellerActivity({ listingId }: { listingId: string }) {
           </FormMessage>
         </div>
       ) : null}
-      <section className="rounded-2xl border border-[var(--border)] bg-white p-5">
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-xl font-semibold">Bud</h2>
         <div className="mt-4 space-y-3">
           {bids.length ? (
@@ -147,7 +147,7 @@ export function SellerActivity({ listingId }: { listingId: string }) {
           )}
         </div>
       </section>
-      <section className="rounded-2xl border border-[var(--border)] bg-white p-5">
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-xl font-semibold">Frågor</h2>
         <div className="mt-4 space-y-3">
           {questions.length ? (

@@ -28,4 +28,10 @@ describe("renderInviteEmail", () => {
     expect(result.html).toContain('href="https://trejder.se/inbjudan/a&quot;b&amp;c"');
     expect(result.html).toContain('src="https://trejder.se/logo.png?x=1&amp;y=&quot;2&quot;"');
   });
+
+  it("can render an English invitation", () => {
+    const result = renderInviteEmail({ inviteUrl: "https://trejder.se/invite", logoUrl: "https://trejder.se/logo.png", locale: "en" });
+    expect(result.subject).toBe("Invitation to Trejder");
+    expect(result.html).toContain(">Accept invitation</a>");
+  });
 });

@@ -69,7 +69,7 @@ export function MarketplaceDetail({ listingId, canStartChat }: { listingId: stri
         Till marknaden
       </Link>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-slate-100 sm:row-span-2 sm:aspect-auto">
+        <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-[var(--surface-subtle)] sm:row-span-2 sm:aspect-auto">
           {images[0] ? (
             <Image
               src={images[0].url}
@@ -85,7 +85,7 @@ export function MarketplaceDetail({ listingId, canStartChat }: { listingId: stri
         {images.slice(1).map((image) => (
           <div
             key={image.position}
-            className="relative aspect-[16/10] overflow-hidden rounded-xl bg-slate-100"
+            className="relative aspect-[16/10] overflow-hidden rounded-xl bg-[var(--surface-subtle)]"
           >
             <Image
               src={image.url}
@@ -112,7 +112,7 @@ export function MarketplaceDetail({ listingId, canStartChat }: { listingId: stri
           <p className="mt-7 max-w-2xl whitespace-pre-wrap">
             {listing.shortComment}
           </p>
-          <div className="mt-7">{listing.isOwnListing ? <Link href={`/app/bilar/${listing.id}`} className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] bg-white px-4 font-semibold hover:bg-slate-50">Hantera min annons</Link> : null}</div>
+          <div className="mt-7">{listing.isOwnListing ? <Link href={`/app/bilar/${listing.id}`} className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 font-semibold hover:bg-[var(--surface-subtle)]">Hantera min annons</Link> : null}</div>
         </div>
         <dl className="space-y-5 text-sm">
           <div>

@@ -22,5 +22,5 @@ export default async function DealerLayout({ children }: { children: ReactNode }
 }
 
 function AccessState({ title, description, children }: { title: string; description: string; children: ReactNode }) {
-  return <main className="flex min-h-screen items-center justify-center px-4"><section className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-white p-6 shadow-sm"><BrandLogo compact /><h1 className="mt-4 text-2xl font-semibold">{title}</h1><p className="mt-3 mb-6 text-[var(--muted)]">{description}</p>{children}</section></main>;
+  return <main className="flex min-h-screen items-center justify-center px-4"><section className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm"><BrandLogo compact /><h1 className="mt-4 text-2xl font-semibold">{title}</h1><p className="mt-3 mb-6 text-[var(--muted)]">{description}</p>{children}</section></main>;
 }

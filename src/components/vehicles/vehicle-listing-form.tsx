@@ -226,7 +226,7 @@ export function VehicleListingForm({
   }
 
   return (
-    <form onSubmit={submit} aria-busy={pending} className="space-y-7 rounded-2xl border border-[var(--border)] bg-white p-5 sm:p-7">
+    <form onSubmit={submit} aria-busy={pending} className="space-y-7 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
       {publishProgress ? <PublishingDialog progress={publishProgress} /> : null}
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
       {success ? <FormMessage type="success">{success}</FormMessage> : null}
@@ -254,7 +254,7 @@ export function VehicleListingForm({
       <fieldset disabled={!editable || immutable}>
         <legend className="font-semibold">Avdragbar moms</legend>
         <div className="mt-2 flex gap-3">
-          {[true, false].map((value) => <label key={String(value)} className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border px-4 font-semibold ${vat === value ? "border-[var(--primary)] bg-blue-50 text-[var(--primary)]" : "border-[var(--border)]"}`}><input type="radio" checked={vat === value} onChange={() => setVat(value)} className="sr-only" />{value ? "Ja" : "Nej"}</label>)}
+          {[true, false].map((value) => <label key={String(value)} className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border px-4 font-semibold ${vat === value ? "border-[var(--primary)] bg-[var(--surface-selected)] text-[var(--primary)]" : "border-[var(--border)]"}`}><input type="radio" checked={vat === value} onChange={() => setVat(value)} className="sr-only" />{value ? "Ja" : "Nej"}</label>)}
         </div>
       </fieldset>
 
@@ -273,8 +273,8 @@ export function VehicleListingForm({
         {editable && !immutable ? <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2.5 font-semibold text-white hover:bg-[var(--primary-hover)]">+ Lägg till bilder<input aria-label="Lägg till bilder" type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(event) => { addSelectedFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = ""; }} /></label> : null}
         <p className="mt-3 text-sm font-medium text-[var(--primary)]">{(currentListing?.images.length ?? 0) + files.length} av 5 bilder valda</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {[...(currentListing?.images ?? [])].sort((a, b) => a.position - b.position).map((existing) => <div key={existing.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-slate-50">
-            <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+          {[...(currentListing?.images ?? [])].sort((a, b) => a.position - b.position).map((existing) => <div key={existing.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)]">
+            <div className="aspect-[4/3] overflow-hidden bg-[var(--surface-subtle)]">
               {/* Image is served by a tenant-authorized private route. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={existing.url} alt={`Fordonsbild ${existing.position}`} className="h-full w-full object-cover" />
@@ -282,7 +282,7 @@ export function VehicleListingForm({
             <div className="space-y-2 p-3"><p className="text-sm font-semibold">Bild {existing.position}</p>{currentListing?.status === "draft" && editable ? <button type="button" onClick={() => void removeImage(existing.position as ImagePosition)} className="min-h-11 w-full text-sm font-semibold text-[var(--danger)]">Ta bort</button> : null}<p className="text-xs font-medium text-[var(--muted)]">{imageProgress[existing.position as ImagePosition] ?? redactionLabel(existing.plateRedactionStatus)}</p></div>
           </div>)}
           {files.map((file, index) => <SelectedImagePreview key={`${file.name}-${file.lastModified}-${index}`} file={file} position={selectedPositions[index] ?? index + 1} onRemove={() => setFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))} />)}
-          {Array.from({ length: Math.max(0, 5 - (currentListing?.images.length ?? 0) - files.length) }, (_, index) => <div key={`empty-${index}`} className="flex aspect-[4/3] items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-slate-50 text-sm text-[var(--muted)]">Ledig bildplats</div>)}
+          {Array.from({ length: Math.max(0, 5 - (currentListing?.images.length ?? 0) - files.length) }, (_, index) => <div key={`empty-${index}`} className="flex aspect-[4/3] items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-subtle)] text-sm text-[var(--muted)]">Ledig bildplats</div>)}
         </div>
         <p className="mt-2 text-xs text-[var(--muted)]">JPEG, PNG eller WebP. Högst 10 MB per bild.</p>
       </fieldset>
@@ -317,7 +317,7 @@ function errorMessage(code: string) {
 
 function PublishingDialog({ progress }: { progress: PublishProgress }) {
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation">
-    <div role="dialog" aria-modal="true" aria-labelledby="publishing-title" aria-describedby="publishing-detail" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
+    <div role="dialog" aria-modal="true" aria-labelledby="publishing-title" aria-describedby="publishing-detail" className="w-full max-w-md rounded-2xl bg-[var(--surface)] p-6 shadow-2xl sm:p-7">
       <div className="flex items-center gap-4">
         <span aria-hidden="true" className="h-10 w-10 shrink-0 animate-spin rounded-full border-4 border-blue-100 border-t-[var(--primary)]" />
         <div>
@@ -325,7 +325,7 @@ function PublishingDialog({ progress }: { progress: PublishProgress }) {
           <h2 id="publishing-title" className="text-xl font-bold tracking-tight">{progress.title}</h2>
         </div>
       </div>
-      <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Publiceringsförlopp" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}>
+      <div className="mt-6 h-3 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-label="Publiceringsförlopp" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}>
         <div className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300" style={{ width: `${progress.percent}%` }} />
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">
@@ -348,8 +348,8 @@ function SelectedImagePreview({ file, position, onRemove }: { file: File; positi
   useEffect(() => {
     return () => URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
-  return <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-slate-50">
-    <div className="aspect-[4/3] overflow-hidden bg-slate-100">{previewUrl ? (
+  return <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)]">
+    <div className="aspect-[4/3] overflow-hidden bg-[var(--surface-subtle)]">{previewUrl ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={previewUrl} alt={`Förhandsvisning av bild ${position}`} className="h-full w-full object-cover" />
     ) : null}</div>

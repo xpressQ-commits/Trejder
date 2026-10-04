@@ -7,6 +7,8 @@ import {
   inputClassName,
   primaryButtonClassName,
 } from "@/components/ui/form-controls";
+import { usePreferences } from "@/components/preferences/preferences-provider";
+import { formatMoney } from "@/i18n";
 
 type Question = {
   id: string;
@@ -17,13 +19,6 @@ type Question = {
   createdAt: string;
 };
 type Bid = { id: string; amountOre: number; status: string };
-const kronor = (ore: number) =>
-  new Intl.NumberFormat("sv-SE", {
-    style: "currency",
-    currency: "SEK",
-    maximumFractionDigits: 0,
-  }).format(ore / 100);
-
 export function MarketplaceInteractions({
   listingId,
   canBid,
@@ -31,9 +26,10 @@ export function MarketplaceInteractions({
   listingId: string;
   canBid: boolean;
 }) {
+  const { t, locale } = usePreferences();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [ownBid, setOwnBid] = useState<Bid | null>(null);
-  const [message, setMessage] = useState<string>();
+  const [message, setMessage] = useState<{ type: "error" | "success"; text: string }>();
   const [pending, setPending] = useState(false);
   const load = useCallback(async () => {
     const [q, b] = await Promise.all([
@@ -70,9 +66,7 @@ export function MarketplaceInteractions({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amountOre }),
     });
-    setMessage(
-      response.ok ? "Budet är registrerat." : "Budet kunde inte registreras.",
-    );
+    setMessage({ type: response.ok ? "success" : "error", text: response.ok ? t("bids.saved") : t("bids.error") });
     await load();
     setPending(false);
   }
@@ -87,11 +81,7 @@ export function MarketplaceInteractions({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: data.get("body") }),
     });
-    setMessage(
-      response.ok
-        ? "Frågan är publicerad."
-        : "Frågan kunde inte publiceras. Kontaktuppgifter är inte tillåtna.",
-    );
+    setMessage({ type: response.ok ? "success" : "error", text: response.ok ? t("questions.saved") : t("questions.error") });
     if (response.ok) form.reset();
     await load();
     setPending(false);
@@ -99,18 +89,18 @@ export function MarketplaceInteractions({
   return (
     <div className="mt-9 space-y-8 border-t border-[var(--border)] pt-8">
       {message ? (
-        <FormMessage type={message.includes("kunde") ? "error" : "success"}>
-          {message}
+        <FormMessage type={message.type}>
+          {message.text}
         </FormMessage>
       ) : null}
       {canBid ? (
         <section>
-          <h2 className="text-xl font-semibold">Lägg bud</h2>
+          <h2 className="text-xl font-semibold">{t("bids.place")}</h2>
           {ownBid ? (
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Ditt nuvarande bud:{" "}
+              {t("bids.current")}:{" "}
               <strong className="text-[var(--foreground)]">
-                {kronor(ownBid.amountOre)}
+                {formatMoney(locale, ownBid.amountOre)}
               </strong>
             </p>
           ) : null}
@@ -121,12 +111,12 @@ export function MarketplaceInteractions({
               min="1"
               step="1"
               required
-              aria-label="Bud i kronor"
-              placeholder="Bud i kronor"
+              aria-label={t("bids.amountPlaceholder")}
+              placeholder={t("bids.amountPlaceholder")}
               className={inputClassName}
             />
             <button disabled={pending} className={primaryButtonClassName}>
-              {ownBid ? "Uppdatera bud" : "Lägg bud"}
+              {ownBid ? t("bids.update") : t("bids.place")}
             </button>
           </form>
           {ownBid?.status === "active" || ownBid?.status === "accepted" ? (
@@ -137,9 +127,9 @@ export function MarketplaceInteractions({
         </section>
       ) : null}
       <section>
-        <h2 className="text-xl font-semibold">Frågor och svar</h2>
+        <h2 className="text-xl font-semibold">{t("questions.title")}</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Frågorna är offentliga och anonyma. Kontaktuppgifter får inte delas.
+          {t("questions.publicHint")}
         </p>
         <div className="mt-4 space-y-3">
           {questions.map((question) => (
@@ -151,12 +141,12 @@ export function MarketplaceInteractions({
               <p className="mt-1">{question.body}</p>
               {question.answerBody ? (
                 <div className="mt-3 border-l-2 border-[var(--primary)] pl-3">
-                  <p className="text-sm font-semibold">Säljaren</p>
+                  <p className="text-sm font-semibold">{t("questions.seller")}</p>
                   <p>{question.answerBody}</p>
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-[var(--muted)]">
-                  Inväntar svar
+                  {t("questions.waiting")}
                 </p>
               )}
             </article>
@@ -169,11 +159,11 @@ export function MarketplaceInteractions({
               required
               maxLength={1000}
               rows={3}
-              placeholder="Ställ en offentlig fråga"
+              placeholder={t("questions.askPlaceholder")}
               className={`${inputClassName} resize-y`}
             />
             <button disabled={pending} className={primaryButtonClassName}>
-              Publicera fråga
+              {t("questions.publish")}
             </button>
           </form>
         ) : null}

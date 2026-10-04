@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Field, FormMessage, primaryButtonClassName } from "@/components/ui/form-controls";
 import { safeReturnTo } from "@/lib/navigation";
+import { usePreferences } from "@/components/preferences/preferences-provider";
 
 export function LoginForm({ returnTo = "/app", invitationAccepted = false }: { returnTo?: string; invitationAccepted?: boolean }) {
   const router = useRouter();
+  const { t } = usePreferences();
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
 
@@ -24,13 +26,13 @@ export function LoginForm({ returnTo = "/app", invitationAccepted = false }: { r
         body: JSON.stringify({ email: data.get("email"), password: data.get("password") }),
       });
       if (!response.ok) {
-        setError("E-postadressen eller lösenordet är felaktigt.");
+        setError(t("auth.invalidCredentials"));
         return;
       }
       router.replace(safeReturnTo(returnTo));
       router.refresh();
     } catch {
-      setError("Det gick inte att logga in just nu. Försök igen.");
+      setError(t("auth.loginError"));
     } finally {
       setPending(false);
     }
@@ -40,12 +42,12 @@ export function LoginForm({ returnTo = "/app", invitationAccepted = false }: { r
     <form onSubmit={submit} className="space-y-5">
       {invitationAccepted ? <FormMessage type="success">Inbjudan är accepterad. Logga in för att fortsätta.</FormMessage> : null}
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
-      <Field label="E-postadress" name="email" type="email" autoComplete="email" inputMode="email" required />
-      <Field label="Lösenord" name="password" type="password" autoComplete="current-password" required />
+      <Field label={t("common.email")} name="email" type="email" autoComplete="email" inputMode="email" required />
+      <Field label={t("common.password")} name="password" type="password" autoComplete="current-password" required />
       <div className="flex flex-col gap-3 pt-1">
-        <button type="submit" disabled={pending} className={primaryButtonClassName}>{pending ? "Loggar in…" : "Logga in"}</button>
-        <Link href="/glomt-losenord" className="inline-flex min-h-11 items-center justify-center rounded-lg font-semibold text-[var(--primary)] hover:underline">Glömt lösenordet?</Link>
-        <Link href="/privatkund/skapa-konto" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border)] font-semibold text-[var(--primary)] hover:bg-[var(--surface-subtle)]">Sälj din bil som privatperson</Link>
+        <button type="submit" disabled={pending} className={primaryButtonClassName}>{pending ? t("auth.loggingIn") : t("auth.login")}</button>
+        <Link href="/glomt-losenord" className="inline-flex min-h-11 items-center justify-center rounded-lg font-semibold text-[var(--primary)] hover:underline">{t("auth.forgotPassword")}</Link>
+        <Link href="/privatkund/skapa-konto" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border)] font-semibold text-[var(--primary)] hover:bg-[var(--surface-subtle)]">{t("auth.privateSignup")}</Link>
       </div>
     </form>
   );

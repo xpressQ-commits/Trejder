@@ -16,6 +16,14 @@ Server Components are the default. Client Components are introduced only where b
 
 No microservices, event bus, global client-state framework or broad UI kit is justified at this stage.
 
+### Theme and localization
+
+- UI colors use semantic CSS variables from `src/app/globals.css`. New components must not introduce light-only literals for surfaces, text, borders or interaction states.
+- Theme preference is `system`, `light` or `dark`. The root layout applies it before hydration; browser code follows `prefers-color-scheme` changes only in system mode.
+- User-facing text belongs in the typed dictionaries under `src/i18n/messages`. Swedish is the default and fallback language; internal enums and API error codes remain stable and untranslated.
+- Dates, numbers and SEK amounts use the locale-aware helpers in `src/i18n`, or equivalent `Intl` formatting with the active locale.
+- Locale is a profile/browser preference rather than a URL prefix. Public SEO routing can make a separate decision later.
+
 ## Authentication choice
 
 Better Auth was chosen because it is TypeScript-native, supports database-backed sessions and credentials, and has a maintained Drizzle/PostgreSQL adapter. It supplies authentication, not marketplace authorization.
