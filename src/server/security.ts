@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 export class AccessError extends Error {
   constructor(
-    public readonly status: 400 | 401 | 403 | 404 | 409,
+    public readonly status: 400 | 401 | 403 | 404 | 409 | 503,
     public readonly code: string,
     message = code,
   ) {

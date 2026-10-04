@@ -241,6 +241,7 @@ function errorMessage(code: string) {
   if (code === "IMAGE_REDACTION_INCOMPLETE") return "Alla bilder måste vara kontrollerade. Byt bilden eller kontakta administratören om granskning krävs.";
   if (code === "INVALID_IMAGE_TYPE") return "Bilden är inte en giltig JPEG-, PNG- eller WebP-fil.";
   if (code === "INVALID_IMAGE_SIZE") return "Bilden är tom eller större än 10 MB.";
+  if (code === "IMAGE_STORAGE_UNAVAILABLE") return "Bildlagringen svarar inte just nu. Försök igen – bilens utkast är redan sparat.";
   if (code === "ACTIVE_LISTING_FIELDS_LOCKED") return "Bilmodell, årsmodell, miltal och moms är låsta efter publicering.";
   if (code === "INVALID_LISTING_INPUT" || code === "INVALID_IDENTIFIER") return "Kontrollera bilmodell, årsmodell och övriga obligatoriska uppgifter.";
   if (code === "FORBIDDEN" || code === "ACTIVE_MEMBERSHIP_REQUIRED") return "Du saknar behörighet att publicera bilen.";

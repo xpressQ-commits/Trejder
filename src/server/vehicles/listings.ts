@@ -335,7 +335,13 @@ export async function putListingImage(input: {
 
   const objectKey = createPrivateObjectKey(validated.mimeType);
   const storage = getImageStorage();
-  await storage.put(objectKey, redaction.bytes, validated.mimeType);
+  try {
+    await storage.put(objectKey, redaction.bytes, validated.mimeType);
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "UNKNOWN";
+    console.error("Private image storage write failed", { listingId: input.listingId, code });
+    throw new AccessError(503, "IMAGE_STORAGE_UNAVAILABLE");
+  }
   let previousKey: string | undefined;
   try {
     await getDb().transaction(async (tx) => {

@@ -19,6 +19,47 @@ export interface PrivateImageStorage {
   read(key: string): Promise<Uint8Array>;
 }
 
+const transientStorageCodes = new Set([
+  "EAI_AGAIN",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ENETUNREACH",
+  "EPIPE",
+  "EPROTO",
+  "ETIMEDOUT",
+]);
+
+function storageErrorDetails(error: unknown) {
+  if (!error || typeof error !== "object") return {};
+  return error as { code?: string; name?: string; $metadata?: { httpStatusCode?: number } };
+}
+
+export function isTransientStorageError(error: unknown) {
+  const details = storageErrorDetails(error);
+  const status = details.$metadata?.httpStatusCode;
+  return Boolean(
+    (details.code && transientStorageCodes.has(details.code))
+    || details.name === "TimeoutError"
+    || details.name === "RequestTimeout"
+    || (status && (status === 408 || status === 429 || status >= 500)),
+  );
+}
+
+export async function withTransientStorageRetry<T>(
+  operation: () => Promise<T>,
+  wait: (milliseconds: number) => Promise<void> = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+) {
+  const delays = [200, 600, 1_500];
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (attempt >= delays.length || !isTransientStorageError(error)) throw error;
+      await wait(delays[attempt]);
+    }
+  }
+}
+
 export function validateImage(bytes: Uint8Array, claimedMime: string) {
   if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) throw new AccessError(400, "INVALID_IMAGE_SIZE");
   let detected: SupportedImageMime | undefined;
@@ -83,21 +124,21 @@ class R2PrivateStorage implements PrivateImageStorage {
   }
 
   async put(key: string, bytes: Uint8Array, mimeType: SupportedImageMime) {
-    await this.client.send(new PutObjectCommand({
+    await withTransientStorageRetry(() => this.client.send(new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       Body: bytes,
       ContentType: mimeType,
       CacheControl: "private, no-store",
-    }));
+    })));
   }
 
   async delete(key: string) {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    await withTransientStorageRetry(() => this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key })));
   }
 
   async read(key: string) {
-    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    const result = await withTransientStorageRetry(() => this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key })));
     if (!result.Body) throw new Error("Private image object is empty");
     return result.Body.transformToByteArray();
   }

@@ -7,8 +7,10 @@ import {
   createLocalImageStorage,
   createPrivateObjectKey,
   getImageStorage,
+  isTransientStorageError,
   MAX_IMAGE_BYTES,
   validateImage,
+  withTransientStorageRetry,
 } from "./images";
 
 const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0xff, 0xd9]);
@@ -70,5 +72,26 @@ describe("private vehicle image validation", () => {
       .rejects.toMatchObject({ code: "INVALID_STORAGE_KEY" });
     await storage.delete("company/listing/1-test.jpg");
     await expect(storage.read("company/listing/1-test.jpg")).rejects.toBeDefined();
+  });
+
+  it("retries transient TLS failures before succeeding", async () => {
+    const operation = vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error("TLS handshake failed"), { code: "EPROTO" }))
+      .mockResolvedValue("stored");
+    const wait = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withTransientStorageRetry(operation, wait)).resolves.toBe("stored");
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(wait).toHaveBeenCalledWith(200);
+    expect(isTransientStorageError({ code: "EPROTO" })).toBe(true);
+  });
+
+  it("does not retry non-transient storage failures", async () => {
+    const operation = vi.fn().mockRejectedValue(Object.assign(new Error("Denied"), { code: "AccessDenied" }));
+    const wait = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withTransientStorageRetry(operation, wait)).rejects.toMatchObject({ code: "AccessDenied" });
+    expect(operation).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
   });
 });
