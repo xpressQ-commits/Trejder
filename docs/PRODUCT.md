@@ -24,7 +24,7 @@ There is one company type: car dealer. The same company may publish, bid, accept
 
 Authorization is always server-side.
 
-Dealer onboarding remains approval-based. A public applicant may submit contact and company details for manual review, but this never creates a user, company or membership. Platform administrators review pending, approved and rejected applications. Approval creates the dealer company and sends its initial ADMIN a single-use invitation; rejection sends a non-approval notice. The platform may also create approved credentials directly for a selected existing company. There is no public self-registration, and a user can never attach themselves by entering an organization number or company ID. Company ADMIN users may invite additional ADMIN, TRADER or VIEWER users.
+Dealer onboarding remains approval-based. A public applicant may submit contact and company details for manual review, but this never creates a user, company or membership. Platform administrators review pending, approved and rejected applications. Approval creates the dealer company and sends its initial ADMIN a single-use invitation; rejection sends a non-approval notice. The platform may also create approved credentials directly: a SUPERADMIN account needs no company, while ADMIN, TRADER and VIEWER authority always belongs to a selected existing company. There is no public self-registration, and a user can never attach themselves by entering an organization number or company ID. Company ADMIN users may invite additional ADMIN, TRADER or VIEWER users.
 
 ## Marketplace rules
 

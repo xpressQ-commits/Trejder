@@ -26,7 +26,7 @@ Better Auth exposes email/password login with a 12-character minimum, database-b
 
 The active company is stored as an opaque HttpOnly, SameSite=Strict cookie for UX continuity. It is never authorization proof: every dealer request reloads the session, active membership and active company and verifies the selected company belongs to the user. Users with several memberships must explicitly select one; a sole membership may be selected automatically by the UI.
 
-Dealer access remains operator-controlled. Public applications are stored as review-only records and send messages through the transactional-email adapter. The platform-admin user area separates pending, approved and rejected applications. Approval creates the company and initial ADMIN invitation; rejection sends a decision message. The same area may create a verified credential account atomically for a selected existing company and explicit role.
+Dealer access remains operator-controlled. Public applications are stored as review-only records and send messages through the transactional-email adapter. The platform-admin user area separates pending, approved and rejected applications. Approval creates the company and initial ADMIN invitation; rejection sends a decision message. The same area may create a standalone verified SUPERADMIN account without a company, or a verified dealer credential account atomically for a selected active company and explicit role.
 
 Internal platform authority is represented independently of dealer membership in `platform_admins`. The one-time `npm run admin:bootstrap` operation creates or promotes a verified credential user from runtime-only environment variables. Dealer `ADMIN` never implies platform authority.
 

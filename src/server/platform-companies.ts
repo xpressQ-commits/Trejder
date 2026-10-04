@@ -4,7 +4,7 @@ import { and, asc, count, eq, sql } from "drizzle-orm";
 import type { Role } from "@/domain/authorization";
 import type { MembershipState } from "@/domain/membership";
 import { getDb } from "@/server/db";
-import { account, auditLog, company, companyMembership, user } from "@/server/db/schema";
+import { account, auditLog, company, companyMembership, platformAdmin, user } from "@/server/db/schema";
 import { AccessError, normalizeEmail } from "@/server/security";
 
 export async function listPlatformCompanies() {
@@ -149,6 +149,63 @@ export async function createPlatformCompanyMember(input: {
       metadata: { role: input.role },
     });
     return membership;
+  }).catch((error: unknown) => {
+    if (error instanceof AccessError) throw error;
+    if (typeof error === "object" && error && "code" in error && error.code === "23505") {
+      throw new AccessError(409, "USER_EMAIL_EXISTS");
+    }
+    throw error;
+  });
+}
+
+export async function createPlatformUser(input: {
+  actorUserId: string;
+  email: string;
+  password: string;
+  authority: "platform_admin" | Role;
+  companyId?: string;
+}) {
+  const email = normalizeEmail(input.email);
+  if (input.password.length < 12 || input.password.length > 128) {
+    throw new AccessError(400, "INVALID_PASSWORD");
+  }
+  if (input.authority !== "platform_admin" && !input.companyId) {
+    throw new AccessError(400, "COMPANY_REQUIRED_FOR_DEALER_ROLE");
+  }
+  return getDb().transaction(async (tx) => {
+    let targetCompanyId: string | undefined;
+    if (input.authority !== "platform_admin") {
+      const [targetCompany] = await tx.select({ id: company.id }).from(company)
+        .where(and(eq(company.id, input.companyId!), eq(company.status, "active"))).for("update");
+      if (!targetCompany) throw new AccessError(404, "COMPANY_NOT_FOUND");
+      targetCompanyId = targetCompany.id;
+    }
+    const [existing] = await tx.select({ id: user.id }).from(user)
+      .where(sql`lower(${user.email}) = ${email}`).limit(1);
+    if (existing) throw new AccessError(409, "USER_EMAIL_EXISTS");
+    const userId = randomUUID();
+    const displayName = email.split("@")[0].replace(/[._-]+/g, " ").trim() || "Trejder-användare";
+    await tx.insert(user).values({ id: userId, name: displayName, email, emailVerified: true });
+    await tx.insert(account).values({
+      id: randomUUID(), accountId: userId, providerId: "credential", userId,
+      password: await hashPassword(input.password),
+    });
+    if (input.authority === "platform_admin") {
+      await tx.insert(platformAdmin).values({ userId });
+    } else {
+      await tx.insert(companyMembership).values({
+        companyId: targetCompanyId!, userId, role: input.authority, status: "active",
+      });
+    }
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: targetCompanyId,
+      action: "platform.user.created",
+      aggregateType: "user",
+      aggregateId: userId,
+      metadata: { authority: input.authority },
+    });
+    return { id: userId, email, authority: input.authority, companyId: targetCompanyId ?? null };
   }).catch((error: unknown) => {
     if (error instanceof AccessError) throw error;
     if (typeof error === "object" && error && "code" in error && error.code === "23505") {
