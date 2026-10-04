@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { Agent } from "node:https";
 import path from "node:path";
 import {
   DeleteObjectCommand,
@@ -7,6 +8,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { AccessError } from "@/server/security";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -138,6 +140,11 @@ class R2PrivateStorage implements PrivateImageStorage {
       region: "auto",
       endpoint,
       forcePathStyle: true,
+      // Railway's long-lived default agent can reuse a connection that Cloudflare R2
+      // has already closed, which surfaces as EPROTO before the signed request arrives.
+      requestHandler: new NodeHttpHandler({
+        httpsAgent: new Agent({ keepAlive: false }),
+      }),
       credentials: { accessKeyId, secretAccessKey },
     });
   }
