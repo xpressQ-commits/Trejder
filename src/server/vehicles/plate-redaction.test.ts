@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { redactVehicleImage, setPlateDetector, type PlateDetector } from "./plate-redaction";
 
 let source: Uint8Array;
@@ -14,7 +14,11 @@ beforeAll(async () => {
   }]).jpeg().toBuffer();
 });
 
-afterEach(() => setPlateDetector(undefined));
+afterEach(() => {
+  setPlateDetector(undefined);
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 describe("vehicle plate redaction", () => {
   it("returns a locally blurred image for a confident plate bounding box", async () => {
@@ -47,6 +51,19 @@ describe("vehicle plate redaction", () => {
     setPlateDetector(null);
     await expect(redactVehicleImage(source, "image/jpeg"))
       .resolves.toMatchObject({ status: "NOT_CHECKED", error: "provider_not_configured" });
+  });
+
+  it("retries a throttled provider response before failing the image", async () => {
+    vi.stubEnv("PLATE_RECOGNIZER_API_TOKEN", "configured-token");
+    setPlateDetector(undefined);
+    const provider = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { "Retry-After": "0" } }))
+      .mockResolvedValueOnce(Response.json({ results: [] }));
+    vi.stubGlobal("fetch", provider);
+
+    await expect(redactVehicleImage(source, "image/jpeg"))
+      .resolves.toMatchObject({ status: "NO_PLATE_DETECTED", error: null });
+    expect(provider).toHaveBeenCalledTimes(2);
   });
 });
 

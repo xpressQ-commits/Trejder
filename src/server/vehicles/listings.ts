@@ -256,11 +256,28 @@ export async function publishListing(input: {
     if (listing.status === "active") return;
     if (listing.status !== "draft") throw new AccessError(409, "INVALID_LISTING_TRANSITION");
     if (listing.modelYear === null) throw new AccessError(409, "MODEL_YEAR_REQUIRED");
-    const images = await tx.select({ status: vehicleImage.plateRedactionStatus }).from(vehicleImage)
+    const images = await tx.select({
+      status: vehicleImage.plateRedactionStatus,
+      processingError: vehicleImage.plateProcessingError,
+    }).from(vehicleImage)
       .where(eq(vehicleImage.listingId, listing.id));
     if (images.length < 1 || images.length > 5) throw new AccessError(409, "IMAGE_COUNT_REQUIRED");
-    if (isPlateRedactionRequired() && images.some((image) => !["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status))) {
-      throw new AccessError(409, "IMAGE_REDACTION_INCOMPLETE");
+    if (isPlateRedactionRequired()) {
+      if (images.some((image) => image.processingError === "plate_provider_http_401" || image.processingError === "plate_provider_http_403")) {
+        throw new AccessError(503, "IMAGE_REDACTION_AUTHENTICATION_FAILED");
+      }
+      if (images.some((image) => image.processingError === "plate_provider_http_429")) {
+        throw new AccessError(503, "IMAGE_REDACTION_TEMPORARILY_UNAVAILABLE");
+      }
+      if (images.some((image) => image.status === "FAILED")) {
+        throw new AccessError(409, "IMAGE_REDACTION_FAILED");
+      }
+      if (images.some((image) => image.status === "REVIEW_REQUIRED")) {
+        throw new AccessError(409, "IMAGE_REDACTION_REVIEW_REQUIRED");
+      }
+      if (images.some((image) => !["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status))) {
+        throw new AccessError(409, "IMAGE_REDACTION_INCOMPLETE");
+      }
     }
     await tx.update(vehicleListing).set({ status: "active", publishedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(vehicleListing.id, listing.id), eq(vehicleListing.status, "draft")));
@@ -375,6 +392,13 @@ export async function putListingImage(input: {
   if (sameImage) return current;
 
   const redaction = await redactVehicleImage(input.bytes, source.mimeType);
+  if (redaction.status === "FAILED") {
+    console.warn("Vehicle plate redaction failed", {
+      listingId: input.listingId,
+      position: input.position,
+      reason: redaction.error,
+    });
+  }
   const validated = validateImage(redaction.bytes, redaction.mimeType);
 
   const objectKey = createPrivateObjectKey(validated.mimeType);

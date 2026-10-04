@@ -45,22 +45,48 @@ class PlateRecognizerDetector implements PlateDetector {
   ) {}
 
   async detect(bytes: Uint8Array, mimeType: SupportedImageMime): Promise<PlateDetection[]> {
-    const body = new FormData();
-    const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1];
-    body.set("upload", new Blob([Buffer.from(bytes)], { type: mimeType }), `vehicle.${extension}`);
-    body.append("regions", "se");
-    body.append("regions", "eu");
-    const response = await fetch(this.endpoint, {
-      method: "POST",
-      headers: { Authorization: `Token ${this.token}` },
-      body,
-      signal: AbortSignal.timeout(this.timeoutMs),
-    });
-    if (!response.ok) throw new Error(`plate_provider_http_${response.status}`);
-    const parsed = snapshotResponse.safeParse(await response.json());
-    if (!parsed.success) throw new Error("plate_provider_invalid_response");
-    return parsed.data.results.map((item) => ({ box: item.box, confidence: item.score }));
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const body = new FormData();
+      const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1];
+      body.set("upload", new Blob([Buffer.from(bytes)], { type: mimeType }), `vehicle.${extension}`);
+      body.append("regions", "se");
+      body.append("regions", "eu");
+      const response = await fetch(this.endpoint, {
+        method: "POST",
+        headers: { Authorization: `Token ${this.token}` },
+        body,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (response.ok) {
+        const parsed = snapshotResponse.safeParse(await response.json());
+        if (!parsed.success) throw new Error("plate_provider_invalid_response");
+        return parsed.data.results.map((item) => ({ box: item.box, confidence: item.score }));
+      }
+      if (!isRetryableProviderStatus(response.status) || attempt === 2) {
+        throw new Error(`plate_provider_http_${response.status}`);
+      }
+      await wait(providerRetryDelay(response.headers.get("retry-after"), attempt));
+    }
+    throw new Error("plate_provider_retry_exhausted");
   }
+}
+
+function isRetryableProviderStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function providerRetryDelay(retryAfter: string | null, attempt: number): number {
+  if (retryAfter !== null) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, 5_000);
+    const dateDelay = Date.parse(retryAfter) - Date.now();
+    if (Number.isFinite(dateDelay) && dateDelay > 0) return Math.min(dateDelay, 5_000);
+  }
+  return 1_100 * (attempt + 1);
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 let detectorOverride: PlateDetector | null | undefined;
