@@ -13,7 +13,7 @@ export function AuthFrame({ eyebrow, title, description, children }: { eyebrow: 
           <p className="mt-3 text-[var(--muted)]">{description}</p>
           <div className="mt-7">{children}</div>
         </section>
-        <p className="mt-10 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]">Åtkomst ges endast till användare som bjudits in av ett godkänt bilhandelsföretag.</p>
+        <div className="mt-10 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]"><p>Åtkomst ges till godkända bilhandelsföretag.</p><Link href="/ansok-om-konto" className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] px-4 font-semibold text-[var(--foreground)] hover:bg-slate-50">Ansök om konto</Link></div>
       </div>
     </main>
   );

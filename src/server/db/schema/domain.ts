@@ -133,7 +133,9 @@ export const vehicleListing = pgTable(
     deductibleVat: boolean("deductible_vat").notNull(),
     status: listingStatus("status").notNull().default("draft"),
     version: integer("version").notNull().default(1),
+    publicationDurationHours: integer("publication_duration_hours").notNull().default(48),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -149,6 +151,11 @@ export const vehicleListing = pgTable(
       sql`${table.mileageKm} <= 2000000 AND ${table.mileageKm} % 10 = 0`,
     ),
     check("vehicle_listings_version_positive", sql`${table.version} > 0`),
+    check("vehicle_listings_publication_duration_range", sql`${table.publicationDurationHours} BETWEEN 48 AND 120`),
+    check(
+      "vehicle_listings_expiry_after_publication",
+      sql`${table.expiresAt} IS NULL OR (${table.publishedAt} IS NOT NULL AND ${table.expiresAt} > ${table.publishedAt})`,
+    ),
     check("vehicle_listings_model_year_range", sql`${table.modelYear} IS NULL OR ${table.modelYear} BETWEEN 1950 AND 3000`),
     check(
       "vehicle_listings_identifier_matches_kind",

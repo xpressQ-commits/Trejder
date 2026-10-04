@@ -1,6 +1,7 @@
 import { renderInviteEmail } from "./templates/invite";
 
 export type TransactionalMessage = {
+  from?: string;
   to: string;
   subject: string;
   text: string;
@@ -43,7 +44,7 @@ export class ResendEmailTransport implements EmailTransport {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: this.from,
+        from: message.from ?? this.from,
         to: [message.to],
         subject: message.subject,
         text: message.text,

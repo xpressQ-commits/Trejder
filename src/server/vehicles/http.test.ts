@@ -7,6 +7,7 @@ const valid = {
   mileageMil: 6430,
   shortComment: "Svensksåld.",
   deductibleVat: true,
+  publicationHours: 48,
 };
 
 describe("vehicle listing transport contract", () => {
@@ -28,6 +29,13 @@ describe("vehicle listing transport contract", () => {
   it("rejects fractional and implausible Swedish mil", () => {
     expect(listingInputSchema.safeParse({ ...valid, mileageMil: 1.5 }).success).toBe(false);
     expect(listingInputSchema.safeParse({ ...valid, mileageMil: 200_001 }).success).toBe(false);
+  });
+
+  it("accepts 48 hours through 5 days and rejects values outside the range", () => {
+    expect(listingInputSchema.safeParse({ ...valid, publicationHours: 48 }).success).toBe(true);
+    expect(listingInputSchema.safeParse({ ...valid, publicationHours: 120 }).success).toBe(true);
+    expect(listingInputSchema.safeParse({ ...valid, publicationHours: 47 }).success).toBe(false);
+    expect(listingInputSchema.safeParse({ ...valid, publicationHours: 121 }).success).toBe(false);
   });
 });
 

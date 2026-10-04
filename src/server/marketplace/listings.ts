@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { and, asc, desc, eq, ilike, inArray, isNotNull, lt, ne, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, inArray, isNotNull, lt, or, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { VehicleIdentifier } from "@/domain/vehicle-listing";
 import { getDb } from "@/server/db";
@@ -19,6 +19,8 @@ export type MarketplaceListingSummaryDto = {
   shortComment: string;
   deductibleVat: boolean;
   publishedAt: Date;
+  expiresAt: Date;
+  isOwnListing: boolean;
   images: MarketplaceImageDto[];
 };
 export type MarketplaceListingDetailDto = MarketplaceListingSummaryDto;
@@ -54,6 +56,7 @@ function identifier(row: {
 
 type MarketplaceRow = {
   id: string;
+  sellerCompanyId: string;
   inputKind: "registration" | "model";
   registrationNumber: string | null;
   vehicleModel: string | null;
@@ -62,9 +65,10 @@ type MarketplaceRow = {
   shortComment: string;
   deductibleVat: boolean;
   publishedAt: Date;
+  expiresAt: Date;
 };
 
-function toDto(row: MarketplaceRow, images: Array<{ position: number }>): MarketplaceListingSummaryDto {
+function toDto(row: MarketplaceRow, images: Array<{ position: number }>, activeCompanyId: string): MarketplaceListingSummaryDto {
   if (!Number.isSafeInteger(row.mileageKm) || row.mileageKm % 10 !== 0) {
     throw new Error("Vehicle listing mileage invariant violated");
   }
@@ -76,6 +80,8 @@ function toDto(row: MarketplaceRow, images: Array<{ position: number }>): Market
     shortComment: row.shortComment,
     deductibleVat: row.deductibleVat,
     publishedAt: row.publishedAt,
+    expiresAt: row.expiresAt,
+    isOwnListing: row.sellerCompanyId === activeCompanyId,
     images: images.map(({ position }) => ({
       position,
       url: `/api/marketplace/${row.id}/images/${position}`,
@@ -85,6 +91,7 @@ function toDto(row: MarketplaceRow, images: Array<{ position: number }>): Market
 
 const marketplaceSelection = {
   id: vehicleListing.id,
+  sellerCompanyId: vehicleListing.sellerCompanyId,
   inputKind: vehicleListing.inputKind,
   registrationNumber: vehicleListing.registrationNumber,
   vehicleModel: vehicleListing.vehicleModel,
@@ -93,6 +100,7 @@ const marketplaceSelection = {
   shortComment: vehicleListing.shortComment,
   deductibleVat: vehicleListing.deductibleVat,
   publishedAt: vehicleListing.publishedAt,
+  expiresAt: vehicleListing.expiresAt,
 } as const;
 
 export async function listMarketplaceListings(input: {
@@ -108,8 +116,9 @@ export async function listMarketplaceListings(input: {
   }
   const filters: SQL[] = [
     eq(vehicleListing.status, "active"),
-    ne(vehicleListing.sellerCompanyId, input.activeCompanyId),
     isNotNull(vehicleListing.publishedAt),
+    isNotNull(vehicleListing.expiresAt),
+    gt(vehicleListing.expiresAt, new Date()),
   ];
   const search = input.search?.trim();
   if (search) {
@@ -146,7 +155,7 @@ export async function listMarketplaceListings(input: {
     ))
     .orderBy(asc(vehicleImage.position));
   return {
-    listings: page.map((row) => toDto(row, images.filter((image) => image.listingId === row.id))),
+    listings: page.map((row) => toDto(row, images.filter((image) => image.listingId === row.id), input.activeCompanyId)),
     nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]) : null,
   };
 }
@@ -159,8 +168,9 @@ export async function getMarketplaceListing(
   const [row] = await db.select(marketplaceSelection).from(vehicleListing).where(and(
     eq(vehicleListing.id, listingId),
     eq(vehicleListing.status, "active"),
-    ne(vehicleListing.sellerCompanyId, activeCompanyId),
     isNotNull(vehicleListing.publishedAt),
+    isNotNull(vehicleListing.expiresAt),
+    gt(vehicleListing.expiresAt, new Date()),
   )).limit(1);
   if (!row?.publishedAt) throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
   const images = await db.select({ position: vehicleImage.position }).from(vehicleImage)
@@ -168,7 +178,7 @@ export async function getMarketplaceListing(
       eq(vehicleImage.listingId, row.id),
       inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
     )).orderBy(asc(vehicleImage.position));
-  return toDto(row as MarketplaceRow, images);
+  return toDto(row as MarketplaceRow, images, activeCompanyId);
 }
 
 export async function readMarketplaceListingImage(input: {
@@ -184,8 +194,9 @@ export async function readMarketplaceListingImage(input: {
     eq(vehicleImage.position, input.position),
     inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
     eq(vehicleListing.status, "active"),
-    ne(vehicleListing.sellerCompanyId, input.activeCompanyId),
     isNotNull(vehicleListing.publishedAt),
+    isNotNull(vehicleListing.expiresAt),
+    gt(vehicleListing.expiresAt, new Date()),
   )).limit(1);
   if (!image) throw new AccessError(404, "IMAGE_NOT_FOUND");
   return { bytes: await getImageStorage().read(image.objectKey), mimeType: image.mimeType };

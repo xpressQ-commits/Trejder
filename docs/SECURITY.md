@@ -32,7 +32,7 @@ Production database privileges should make match commercial snapshots and audit 
 
 - Database-backed revocable sessions; secure cookies in production.
 - Exact trusted origins and CSRF/origin protections for auth and application mutations.
-- Verified email is mandatory; public Better Auth sign-up is disabled. An emailed, one-time invitation is the only public account-creation capability.
+- Verified email is mandatory; public Better Auth sign-up is disabled. Public account applications only send review emails and never create access. Accounts are created through a one-time invitation or directly by a freshly authorized platform administrator for a selected company and role.
 - Invitation tokens contain 256 bits of randomness and only SHA-256 hashes are stored. Company and role are loaded from the locked row; acceptance payloads cannot override them.
 - Existing accounts must be authenticated as the invitation email. A token may create a new verified credential identity because possession proves control of the destination mailbox.
 - Membership and company status are reloaded on every dealer request. Suspension or revocation therefore removes dealer access without relying on browser state or global session revocation.
@@ -47,7 +47,7 @@ Vehicle images use private storage and server-generated opaque object keys with 
 
 Draft images may be added, replaced or removed. Active images may only be replaced atomically, preserving the 1–5 invariant. Sharp normalizes EXIF orientation and removes metadata. Plate Recognizer Snapshot Cloud receives the normalized image for bounding-box detection; its token is server-only. High-confidence boxes are blurred locally and only that result is stored. A no-plate result stores the normalized image. When the provider token is configured (or `PLATE_REDACTION_REQUIRED=true`), failed, unchecked or low-confidence checks cannot be published. Without a configured provider, images remain transparently marked `NOT_CHECKED` and publication remains available. Plate Recognizer documents 30-day rolling Cloud dashboard retention, so production use requires accepting that processor policy or deploying its on-premise SDK. Reads use an authenticated application route with `private, no-store` and `nosniff`; the R2 bucket is not public.
 
-Marketplace image reads independently reload active membership and require an active, other-company listing. Withdrawing a listing therefore immediately removes its marketplace image access. Marketplace DTOs expose only application image routes, never object keys or image identifiers.
+Marketplace image reads independently reload active membership and require an unexpired active listing. Withdrawing or expiring a listing therefore immediately removes its marketplace image access. Marketplace DTOs expose only application image routes, never object keys or image identifiers.
 
 ## Verification strategy
 

@@ -112,7 +112,9 @@ export function MarketplaceDetail({ listingId, canStartChat }: { listingId: stri
           <p className="mt-7 max-w-2xl whitespace-pre-wrap">
             {listing.shortComment}
           </p>
-          <div className="mt-7"><StartChatButton listingId={listing.id} canStart={canStartChat} /></div>
+          <div className="mt-7">{listing.isOwnListing
+            ? <Link href={`/app/bilar/${listing.id}`} className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] bg-white px-4 font-semibold hover:bg-slate-50">Hantera min annons</Link>
+            : <StartChatButton listingId={listing.id} canStart={canStartChat} />}</div>
         </div>
         <dl className="space-y-5 text-sm">
           <div>

@@ -94,21 +94,23 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
     await db.delete(user).where(inArray(user.id, [activeViewer, suspendedViewer, revokedViewer, sellerUser, thirdUser]));
   });
 
-  it("returns only other companies' active listings through an anonymous allow-list", async () => {
+  it("returns every active listing newest first through an anonymous allow-list", async () => {
     const { listMarketplaceListings } = await import("./listings");
     const result = await listMarketplaceListings({ activeCompanyId: buyerCompany });
-    expect(result.listings.map(({ id }) => id)).toEqual([listingIds.newest, listingIds.older]);
+    expect(result.listings.map(({ id }) => id)).toEqual([listingIds.own, listingIds.newest, listingIds.older]);
     expect(result.listings[0]).toEqual({
-      id: listingIds.newest,
-      identifier: { kind: "registration", value: "AAA111" },
+      id: listingIds.own,
+      identifier: { kind: "registration", value: "OWN111" },
       mileageMil: 6430,
       modelYear: null,
       shortComment: "Marketplace test",
       deductibleVat: true,
-      publishedAt: new Date("2026-09-28T12:00:00Z"),
+      publishedAt: new Date("2026-09-28T13:00:00Z"),
+      expiresAt: expect.any(Date),
+      isOwnListing: true,
       images: [1, 2, 3].map((position) => ({
         position,
-        url: `/api/marketplace/${listingIds.newest}/images/${position}`,
+        url: `/api/marketplace/${listingIds.own}/images/${position}`,
       })),
     });
     expect(JSON.stringify(result)).not.toMatch(/SECRET SELLER|secret-seller|sellerCompany|CompanyId|objectKey|createdBy|mimeType|byteSize/i);
@@ -121,19 +123,19 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
     await expect(listMarketplaceListings({ activeCompanyId: buyerCompany, cursor: "forged" }))
       .rejects.toMatchObject({ status: 400, code: "INVALID_MARKETPLACE_CURSOR" });
     const first = await listMarketplaceListings({ activeCompanyId: buyerCompany, limit: 1 });
-    expect(first.listings.map(({ id }) => id)).toEqual([listingIds.newest]);
+    expect(first.listings.map(({ id }) => id)).toEqual([listingIds.own]);
     expect(first.nextCursor).toEqual(expect.any(String));
     const second = await listMarketplaceListings({ activeCompanyId: buyerCompany, limit: 1, cursor: first.nextCursor! });
-    expect(second.listings.map(({ id }) => id)).toEqual([listingIds.older]);
+    expect(second.listings.map(({ id }) => id)).toEqual([listingIds.newest]);
     expect((await listMarketplaceListings({ activeCompanyId: buyerCompany, search: "AAA" })).listings.map(({ id }) => id))
       .toEqual([listingIds.newest]);
     expect((await listMarketplaceListings({ activeCompanyId: buyerCompany, vat: "no" })).listings.map(({ id }) => id))
       .toEqual([listingIds.older]);
   });
 
-  it("denies own, draft and withdrawn details and images while allowing another dealer's active image", async () => {
+  it("allows own active details and images but denies draft and withdrawn listings", async () => {
     const { getMarketplaceListing, readMarketplaceListingImage } = await import("./listings");
-    await expect(getMarketplaceListing(buyerCompany, listingIds.own)).rejects.toMatchObject({ status: 404 });
+    await expect(getMarketplaceListing(buyerCompany, listingIds.own)).resolves.toMatchObject({ id: listingIds.own });
     await expect(getMarketplaceListing(buyerCompany, listingIds.draft)).rejects.toMatchObject({ status: 404 });
     await expect(getMarketplaceListing(buyerCompany, listingIds.withdrawn)).rejects.toMatchObject({ status: 404 });
     await expect(readMarketplaceListingImage({ activeCompanyId: buyerCompany, listingId: listingIds.draft, position: 1 }))
@@ -141,7 +143,7 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
     await expect(readMarketplaceListingImage({ activeCompanyId: buyerCompany, listingId: listingIds.withdrawn, position: 1 }))
       .rejects.toMatchObject({ status: 404 });
     await expect(readMarketplaceListingImage({ activeCompanyId: buyerCompany, listingId: listingIds.own, position: 1 }))
-      .rejects.toMatchObject({ status: 404 });
+      .resolves.toMatchObject({ mimeType: "image/jpeg", bytes: new Uint8Array([1]) });
     await expect(readMarketplaceListingImage({ activeCompanyId: buyerCompany, listingId: listingIds.newest, position: 1 }))
       .resolves.toMatchObject({ mimeType: "image/jpeg", bytes: new Uint8Array([1]) });
   });
@@ -174,5 +176,6 @@ function listing(
     deductibleVat,
     status,
     publishedAt,
+    expiresAt: status === "active" ? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) : null,
   };
 }

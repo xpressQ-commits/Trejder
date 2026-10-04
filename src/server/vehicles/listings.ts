@@ -29,8 +29,10 @@ export type OwnListingDto = {
   shortComment: string;
   deductibleVat: boolean;
   status: ListingStatus;
+  publicationHours: number;
   createdAt: Date;
   publishedAt: Date | null;
+  expiresAt: Date | null;
   images: Array<{
     id: string;
     position: number;
@@ -48,6 +50,7 @@ export type ListingInput = {
   mileageMil: number;
   shortComment: string;
   deductibleVat: boolean;
+  publicationHours?: number;
 };
 
 function normalizeComment(value: string): string {
@@ -79,6 +82,7 @@ function normalizedListingValues(input: ListingInput) {
     mileageKm,
     shortComment: normalizeComment(input.shortComment),
     deductibleVat: input.deductibleVat,
+    publicationDurationHours: input.publicationHours ?? 48,
   } as const;
 }
 
@@ -107,8 +111,10 @@ function toDto(
     shortComment: row.shortComment,
     deductibleVat: row.deductibleVat,
     status: row.status,
+    publicationHours: row.publicationDurationHours,
     createdAt: row.createdAt,
     publishedAt: row.publishedAt,
+    expiresAt: row.expiresAt,
     images: images.map((image) => ({
       id: image.id,
       position: image.position,
@@ -225,6 +231,7 @@ export async function updateOwnListing(input: {
     }
     if (input.values.shortComment !== undefined) update.shortComment = normalizeComment(input.values.shortComment);
     if (input.values.deductibleVat !== undefined) update.deductibleVat = input.values.deductibleVat;
+    if (input.values.publicationHours !== undefined) update.publicationDurationHours = input.values.publicationHours;
 
     await tx.update(vehicleListing).set({ ...update, updatedAt: new Date() }).where(and(
       eq(vehicleListing.id, listing.id),
@@ -279,7 +286,13 @@ export async function publishListing(input: {
         throw new AccessError(409, "IMAGE_REDACTION_INCOMPLETE");
       }
     }
-    await tx.update(vehicleListing).set({ status: "active", publishedAt: new Date(), updatedAt: new Date() })
+    const publishedAt = new Date();
+    await tx.update(vehicleListing).set({
+      status: "active",
+      publishedAt,
+      expiresAt: new Date(publishedAt.getTime() + listing.publicationDurationHours * 3_600_000),
+      updatedAt: publishedAt,
+    })
       .where(and(eq(vehicleListing.id, listing.id), eq(vehicleListing.status, "draft")));
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,

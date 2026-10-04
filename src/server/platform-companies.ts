@@ -1,8 +1,10 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { hashPassword } from "better-auth/crypto";
+import { and, asc, count, eq, sql } from "drizzle-orm";
 import type { Role } from "@/domain/authorization";
 import type { MembershipState } from "@/domain/membership";
 import { getDb } from "@/server/db";
-import { auditLog, company, companyMembership, user } from "@/server/db/schema";
+import { account, auditLog, company, companyMembership, user } from "@/server/db/schema";
 import { AccessError, normalizeEmail } from "@/server/security";
 
 export async function listPlatformCompanies() {
@@ -107,6 +109,53 @@ export async function listPlatformCompanyMembers(companyId: string) {
     .innerJoin(user, eq(user.id, companyMembership.userId))
     .where(eq(companyMembership.companyId, companyId))
     .orderBy(asc(user.name));
+}
+
+export async function createPlatformCompanyMember(input: {
+  actorUserId: string;
+  companyId: string;
+  email: string;
+  password: string;
+  role: Role;
+}) {
+  const email = normalizeEmail(input.email);
+  if (input.password.length < 12 || input.password.length > 128) {
+    throw new AccessError(400, "INVALID_PASSWORD");
+  }
+  return getDb().transaction(async (tx) => {
+    const [targetCompany] = await tx.select({ id: company.id }).from(company)
+      .where(eq(company.id, input.companyId)).for("update");
+    if (!targetCompany) throw new AccessError(404, "COMPANY_NOT_FOUND");
+    const [existing] = await tx.select({ id: user.id }).from(user)
+      .where(sql`lower(${user.email}) = ${email}`).limit(1);
+    if (existing) throw new AccessError(409, "USER_EMAIL_EXISTS");
+
+    const userId = randomUUID();
+    const displayName = email.split("@")[0].replace(/[._-]+/g, " ").trim() || "Trejder-användare";
+    await tx.insert(user).values({ id: userId, name: displayName, email, emailVerified: true });
+    await tx.insert(account).values({
+      id: randomUUID(), accountId: userId, providerId: "credential", userId,
+      password: await hashPassword(input.password),
+    });
+    const [membership] = await tx.insert(companyMembership).values({
+      companyId: input.companyId, userId, role: input.role, status: "active",
+    }).returning();
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.companyId,
+      action: "platform.company_membership.created",
+      aggregateType: "company_membership",
+      aggregateId: membership.id,
+      metadata: { role: input.role },
+    });
+    return membership;
+  }).catch((error: unknown) => {
+    if (error instanceof AccessError) throw error;
+    if (typeof error === "object" && error && "code" in error && error.code === "23505") {
+      throw new AccessError(409, "USER_EMAIL_EXISTS");
+    }
+    throw error;
+  });
 }
 
 export async function updatePlatformCompanyMembership(input: {

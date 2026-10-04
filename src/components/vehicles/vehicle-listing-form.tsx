@@ -28,6 +28,7 @@ export function VehicleListingForm({
   const [mileage, setMileage] = useState(listing ? String(listing.mileageMil) : "");
   const [comment, setComment] = useState(listing?.shortComment ?? "");
   const [vat, setVat] = useState(listing?.deductibleVat ?? false);
+  const [publicationHours, setPublicationHours] = useState(listing?.publicationHours ?? 48);
   const [draftId, setDraftId] = useState(listing?.id);
   const [files, setFiles] = useState<File[]>([]);
   const [currentListing, setCurrentListing] = useState(listing);
@@ -85,6 +86,7 @@ export function VehicleListingForm({
             mileageMil,
             shortComment: comment,
             deductibleVat: vat,
+            publicationHours,
           };
       const response = await fetch(
         listingId ? `/api/company/listings/${listingId}` : "/api/company/listings",
@@ -158,11 +160,16 @@ export function VehicleListingForm({
       }
 
       setFiles([]);
-      if (!listing || action === "publish") {
+      if (action === "publish") {
+        router.replace("/app/bilar");
+        router.refresh();
+        return;
+      }
+      if (!listing) {
         router.push(`/app/bilar/${listingId}`);
       }
       router.refresh();
-      setSuccess(action === "publish" ? "Bilen är publicerad." : "Ändringarna är sparade.");
+      setSuccess("Ändringarna är sparade.");
     } catch (caught) {
       const code = caught instanceof Error ? caught.message : "UNKNOWN";
       setError(errorMessage(code));
@@ -250,6 +257,16 @@ export function VehicleListingForm({
           {[true, false].map((value) => <label key={String(value)} className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border px-4 font-semibold ${vat === value ? "border-[var(--primary)] bg-blue-50 text-[var(--primary)]" : "border-[var(--border)]"}`}><input type="radio" checked={vat === value} onChange={() => setVat(value)} className="sr-only" />{value ? "Ja" : "Nej"}</label>)}
         </div>
       </fieldset>
+
+      <label className="block font-semibold">Publiceringstid
+        <select aria-label="Publiceringstid" value={publicationHours} onChange={(event) => setPublicationHours(Number(event.target.value))} disabled={!editable || immutable} className={inputClassName}>
+          <option value={48}>48 timmar</option>
+          <option value={72}>3 dagar</option>
+          <option value={96}>4 dagar</option>
+          <option value={120}>5 dagar</option>
+        </select>
+        <span className="mt-1 block text-xs font-normal text-[var(--muted)]">Annonsen tas automatiskt bort från marknaden när tiden löper ut.</span>
+      </label>
 
       <fieldset disabled={!editable || immutable}>
         <legend className="font-semibold">Bilder <span className="font-normal text-[var(--muted)]">— minst 1, högst 5 vid publicering</span></legend>

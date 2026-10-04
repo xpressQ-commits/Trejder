@@ -6,7 +6,7 @@
 - **User:** an authenticated human identity.
 - **CompanyMembership:** connects one user to one company with `ADMIN`, `TRADER` or `VIEWER` authority and an active, suspended or revoked state.
 - **CompanyInvitation:** one-time, expiring invitation to a company and role.
-- **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag and server-controlled state.
+- **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag, 48–120 hour publication duration and server-controlled state.
 - **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 1–5 valid images; completed plate checks are required when redaction is configured.
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.
 - **Match:** immutable result of accepting one bid, including amount and historical commercial terms.
@@ -34,7 +34,7 @@ The publish transaction requires 1–5 images. When plate redaction is configure
 
 Listing:
 
-- `draft -> active`: ADMIN/TRADER of seller; complete required data and 1–5 images, plate-checked when the provider is configured.
+- `draft -> active`: ADMIN/TRADER of seller; complete required data, 48–120 hour publication duration and 1–5 images, plate-checked when the provider is configured. The server derives the expiry timestamp.
 - `draft -> withdrawn`: ADMIN/TRADER of seller.
 - `active -> withdrawn`: ADMIN/TRADER of seller if no match exists.
 - `active -> matched`: only the bid acceptance transaction.
@@ -57,8 +57,8 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 
 ## Phase 3 marketplace visibility
 
-- An authenticated user with a fresh active membership may browse active listings owned by other dealer companies; VIEWER, TRADER and ADMIN have equal read access.
-- Draft, withdrawn, matched and own-company listings are not marketplace-visible.
+- An authenticated user with a fresh active membership may browse every unexpired active listing; VIEWER, TRADER and ADMIN have equal read access.
+- Draft, withdrawn, matched and expired listings are not marketplace-visible. Own-company active listings remain visible in the feed.
 - Marketplace projections deliberately omit seller company/user identity, storage keys and internal metadata.
 - Marketplace images are readable only while the corresponding listing satisfies the marketplace visibility predicate.
 - Feed queries use bounded, newest-first cursor pagination and optional registration/model text and deductible-VAT filters.

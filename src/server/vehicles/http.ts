@@ -9,6 +9,7 @@ export const listingInputSchema = z.object({
   mileageMil: z.number().int().min(0).max(200_000),
   shortComment: z.string().min(1).max(500),
   deductibleVat: z.boolean(),
+  publicationHours: z.number().int().min(48).max(120),
 }).strict();
 
 export async function requireListingContext(request: Request, mutate: boolean) {

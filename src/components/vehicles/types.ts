@@ -10,8 +10,10 @@ export type OwnListing = {
   shortComment: string;
   deductibleVat: boolean;
   status: ListingStatus;
+  publicationHours: number;
   createdAt: string;
   publishedAt: string | null;
+  expiresAt: string | null;
   images: ListingImage[];
 };
 
@@ -26,13 +28,16 @@ export function serializeOwnListing(listing: {
   shortComment: string;
   deductibleVat: boolean;
   status: ListingStatus;
+  publicationHours: number;
   createdAt: Date;
   publishedAt: Date | null;
+  expiresAt: Date | null;
   images: ListingImage[];
 }): OwnListing {
   return {
     ...listing,
     createdAt: listing.createdAt.toISOString(),
     publishedAt: listing.publishedAt?.toISOString() ?? null,
+    expiresAt: listing.expiresAt?.toISOString() ?? null,
   };
 }

@@ -106,8 +106,10 @@ function ownListing(images: OwnListing["images"]): OwnListing {
     shortComment: "Fin bil",
     deductibleVat: false,
     status: "draft",
+    publicationHours: 48,
     createdAt: new Date().toISOString(),
     publishedAt: null,
+    expiresAt: null,
     images,
   };
 }

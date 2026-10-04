@@ -8,7 +8,7 @@ Trejder is a responsive Swedish dealer-to-dealer vehicle marketplace. It should 
 
 Publishing stays deliberately short:
 
-`Vehicle model -> model year (1950 through next year) -> mileage -> short comment -> deductible VAT yes/no -> 1–5 images -> publish`
+`Vehicle model -> model year (1950 through next year) -> mileage -> short comment -> deductible VAT yes/no -> publication duration (48–120 hours) -> 1–5 images -> publish`
 
 There is no automatic vehicle lookup. Never invent specifications from a registration number or model.
 
@@ -24,10 +24,11 @@ There is one company type: car dealer. The same company may publish, bid, accept
 
 Authorization is always server-side.
 
-Dealer onboarding is closed. The platform creates an approved dealer company and sends its initial ADMIN a single-use invitation. There is no public company registration, and a user can never attach themselves by entering an organization number or company ID. Company ADMIN users may invite additional ADMIN, TRADER or VIEWER users.
+Dealer onboarding remains approval-based. A public applicant may submit contact and company details for manual review, but this never creates a user, company or membership. The platform can create approved credentials directly for a selected company or send its initial ADMIN a single-use invitation. There is no public self-registration, and a user can never attach themselves by entering an organization number or company ID. Company ADMIN users may invite additional ADMIN, TRADER or VIEWER users.
 
 ## Marketplace rules
 
+- The marketplace shows every unexpired active listing, including the browsing dealer's own listings, newest first.
 - The seller sees listing-scoped labels such as `Bidgivare 1`, never bidder identity before acceptance.
 - A seller may accept any valid bid, not necessarily the highest.
 - One listing can create at most one match.

@@ -11,6 +11,8 @@ export type MarketplaceListingSummary = {
   shortComment: string;
   deductibleVat: boolean;
   publishedAt: string;
+  expiresAt: string;
+  isOwnListing: boolean;
   images: MarketplaceImage[];
 };
 
