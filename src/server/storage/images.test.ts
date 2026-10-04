@@ -9,6 +9,7 @@ import {
   getImageStorage,
   isTransientStorageError,
   MAX_IMAGE_BYTES,
+  storageErrorLogFields,
   validateImage,
   withTransientStorageRetry,
 } from "./images";
@@ -93,5 +94,24 @@ describe("private vehicle image validation", () => {
     await expect(withTransientStorageRetry(operation, wait)).rejects.toMatchObject({ code: "AccessDenied" });
     expect(operation).toHaveBeenCalledTimes(1);
     expect(wait).not.toHaveBeenCalled();
+  });
+
+  it("reports safe AWS storage diagnostics without logging secrets or messages", () => {
+    const error = Object.assign(new Error("request to a private endpoint failed"), {
+      name: "Unknown",
+      code: "EPROTO",
+      secretAccessKey: "must-not-be-logged",
+      $metadata: { httpStatusCode: 400, attempts: 2, totalRetryDelay: 200 },
+    });
+
+    expect(storageErrorLogFields(error)).toEqual({
+      name: "Unknown",
+      code: "EPROTO",
+      httpStatusCode: 400,
+      attempts: 2,
+      totalRetryDelay: 200,
+    });
+    expect(storageErrorLogFields(error)).not.toHaveProperty("message");
+    expect(storageErrorLogFields(error)).not.toHaveProperty("secretAccessKey");
   });
 });

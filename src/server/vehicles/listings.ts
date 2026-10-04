@@ -15,6 +15,7 @@ import { redactVehicleImage, type PlateRedactionStatus } from "@/server/vehicles
 import {
   createPrivateObjectKey,
   getImageStorage,
+  storageErrorLogFields,
   validateImage,
 } from "@/server/storage/images";
 
@@ -381,8 +382,10 @@ export async function putListingImage(input: {
   try {
     await storage.put(objectKey, redaction.bytes, validated.mimeType);
   } catch (error) {
-    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "UNKNOWN";
-    console.error("Private image storage write failed", { listingId: input.listingId, code });
+    console.error("Private image storage write failed", {
+      listingId: input.listingId,
+      ...storageErrorLogFields(error),
+    });
     throw new AccessError(503, "IMAGE_STORAGE_UNAVAILABLE");
   }
   let previousKey: string | undefined;

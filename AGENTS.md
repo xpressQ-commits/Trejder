@@ -29,5 +29,6 @@ This repository is a Swedish B2B vehicle marketplace for one company type: **car
 6. Important state changes are transactional, auditable and concurrency-safe.
 7. Update the relevant source-of-truth document when a decision changes.
 8. Run `npm run check` before handing work back.
+9. The product and brand name is strictly **Trejder**. New internal resources, files, services and identifiers must use `trejder` as their naming prefix where a prefix is needed. Never use names associated with another marketplace.
 
 The lead agent owns cross-cutting decisions and integration. Specialists may recommend changes to core rules but must not redefine them independently.

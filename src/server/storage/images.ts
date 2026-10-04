@@ -31,7 +31,26 @@ const transientStorageCodes = new Set([
 
 function storageErrorDetails(error: unknown) {
   if (!error || typeof error !== "object") return {};
-  return error as { code?: string; name?: string; $metadata?: { httpStatusCode?: number } };
+  return error as {
+    code?: string;
+    name?: string;
+    $metadata?: {
+      httpStatusCode?: number;
+      attempts?: number;
+      totalRetryDelay?: number;
+    };
+  };
+}
+
+export function storageErrorLogFields(error: unknown) {
+  const details = storageErrorDetails(error);
+  return {
+    name: details.name ?? "Unknown",
+    code: details.code ?? "UNKNOWN",
+    httpStatusCode: details.$metadata?.httpStatusCode,
+    attempts: details.$metadata?.attempts,
+    totalRetryDelay: details.$metadata?.totalRetryDelay,
+  };
 }
 
 export function isTransientStorageError(error: unknown) {
