@@ -1,4 +1,4 @@
-import { Building2, CarFront, Settings, ShieldCheck, Store, Users } from "lucide-react";
+import { Building2, CarFront, MessageCircle, Settings, ShieldCheck, Store, Users } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CompanySwitcher, LogoutButton } from "@/components/app-shell/session-controls";
@@ -10,6 +10,7 @@ export function AppShell({ children, userName, companyName, companyId, role, com
   const navigation = [
     { href: "/app/marknad", label: "Marknad", icon: Store },
     { href: "/app/bilar", label: "Mina bilar", icon: CarFront },
+    { href: "/app/chattar", label: "Chattar", icon: MessageCircle },
     { href: "/app/foretag", label: "Företag", icon: Building2 },
     ...(role === "admin" ? [{ href: "/app/anvandare", label: "Användare", icon: Users }] : []),
     ...(isPlatformAdmin ? [{ href: "/admin", label: "Superadmin", icon: ShieldCheck }] : []),

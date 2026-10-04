@@ -102,6 +102,7 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
       id: listingIds.newest,
       identifier: { kind: "registration", value: "AAA111" },
       mileageMil: 6430,
+      modelYear: null,
       shortComment: "Marketplace test",
       deductibleVat: true,
       publishedAt: new Date("2026-09-28T12:00:00Z"),

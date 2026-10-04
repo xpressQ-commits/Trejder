@@ -6,8 +6,9 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatMileage, formatPublished } from "./marketplace-feed";
 import type { MarketplaceListingSummary } from "./types";
+import { StartChatButton } from "@/components/chat/start-chat-button";
 
-export function MarketplaceDetail({ listingId }: { listingId: string }) {
+export function MarketplaceDetail({ listingId, canStartChat }: { listingId: string; canStartChat: boolean }) {
   const [listing, setListing] = useState<MarketplaceListingSummary | null>(
     null,
   );
@@ -111,6 +112,7 @@ export function MarketplaceDetail({ listingId }: { listingId: string }) {
           <p className="mt-7 max-w-2xl whitespace-pre-wrap">
             {listing.shortComment}
           </p>
+          <div className="mt-7"><StartChatButton listingId={listing.id} canStart={canStartChat} /></div>
         </div>
         <dl className="space-y-5 text-sm">
           <div>

@@ -281,6 +281,61 @@ export const match = pgTable(
   ],
 );
 
+export const chatThread = pgTable(
+  "chat_threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listingId: uuid("listing_id").notNull(),
+    sellerCompanyId: uuid("seller_company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "restrict" }),
+    buyerCompanyId: uuid("buyer_company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "restrict" }),
+    anonymousNumber: integer("anonymous_number").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.listingId, table.sellerCompanyId],
+      foreignColumns: [vehicleListing.id, vehicleListing.sellerCompanyId],
+      name: "chat_threads_listing_and_seller_fk",
+    }).onDelete("restrict"),
+    uniqueIndex("chat_threads_listing_buyer_uq").on(table.listingId, table.buyerCompanyId),
+    uniqueIndex("chat_threads_listing_alias_uq").on(table.listingId, table.anonymousNumber),
+    index("chat_threads_seller_updated_idx").on(table.sellerCompanyId, table.updatedAt),
+    index("chat_threads_buyer_updated_idx").on(table.buyerCompanyId, table.updatedAt),
+    check("chat_threads_distinct_parties", sql`${table.sellerCompanyId} <> ${table.buyerCompanyId}`),
+    check("chat_threads_alias_positive", sql`${table.anonymousNumber} > 0`),
+  ],
+);
+
+export const chatMessage = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => chatThread.id, { onDelete: "cascade" }),
+    senderCompanyId: uuid("sender_company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "restrict" }),
+    senderUserId: text("sender_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    body: varchar("body", { length: 2000 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("chat_messages_thread_created_idx").on(table.threadId, table.createdAt),
+    check("chat_messages_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+  ],
+);
+
 export const auditLog = pgTable(
   "audit_logs",
   {

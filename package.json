@@ -11,14 +11,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "npm run db:migrate && next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node scripts/migrate.mjs",
     "db:studio": "drizzle-kit studio",
     "admin:bootstrap": "node scripts/bootstrap-platform-admin.mjs",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build"

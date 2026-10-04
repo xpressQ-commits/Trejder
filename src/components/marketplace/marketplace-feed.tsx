@@ -3,18 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CarFront, Search } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MarketplaceListingSummary, MarketplacePage } from "./types";
 
 type VatFilter = "all" | "yes" | "no";
 
-export function MarketplaceFeed() {
+export function MarketplaceFeed({ initialPage }: { initialPage: MarketplacePage }) {
   const [query, setQuery] = useState("");
   const [vat, setVat] = useState<VatFilter>("all");
-  const [listings, setListings] = useState<MarketplaceListingSummary[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [listings, setListings] = useState<MarketplaceListingSummary[]>(initialPage.listings);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialPage.nextCursor);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const firstRender = useRef(true);
 
   const load = useCallback(async (cursor?: string) => {
     setLoading(true);
@@ -37,6 +38,7 @@ export function MarketplaceFeed() {
   }, [query, vat]);
 
   useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
     const timer = window.setTimeout(() => { void load(); }, 250);
     return () => window.clearTimeout(timer);
   }, [load]);
