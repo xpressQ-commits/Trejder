@@ -3,10 +3,10 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { Field, FormMessage, primaryButtonClassName, secondaryButtonClassName, SelectField } from "@/components/ui/form-controls";
 
-type Role = "admin" | "trader" | "viewer";
+type Role = "admin" | "trader" | "viewer" | "private_customer";
 type Member = { id: string; name: string; email: string; role: Role; status: "active" | "suspended" | "revoked" };
 type Invitation = { id: string; email: string; role: Role; status: "pending" | "accepted" | "revoked" | "expired"; expiresAt: string | Date };
-const roleLabels: Record<Role, string> = { admin: "Administratör", trader: "Handlare", viewer: "Läsbehörighet" };
+const roleLabels: Record<Role, string> = { admin: "Administratör", trader: "Handlare", viewer: "Läsbehörighet", private_customer: "Privatkund" };
 const statusLabels = { active: "Aktiv", suspended: "Pausad", revoked: "Återkallad" } as const;
 
 export function MemberAdmin({ initialMembers, initialInvitations }: { initialMembers: Member[]; initialInvitations: Invitation[] }) {

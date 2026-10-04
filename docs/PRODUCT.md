@@ -37,11 +37,13 @@ Dealer onboarding remains approval-based. A public applicant may submit contact 
 - Accepted dealer match fee: 499 SEK excluding VAT for seller and 499 SEK excluding VAT for buyer.
 - Payments and invoicing are not part of the current implementation.
 
+## Private sellers
+
+A verified `PRIVATE_CUSTOMER` may publish and manage only their own vehicles, receive dealer bids, answer public listing questions, exchange bid-gated messages and accept one bid. Private customers cannot browse the marketplace, bid, buy, manage dealer companies or access dealer-only routes. Dealer and seller identity remains hidden from the counterparty until a bid is accepted.
+
 ## Current non-goals
 
-No private sellers, vehicle registry integration, CRM, accounting, Fortnox, Blocket, inventory/ERP, financing, warranties, automated valuation, AI descriptions, messaging, chart dashboards or native apps.
-
-Private sellers may be explored later. Do not add polymorphic architecture solely for that possibility.
+No vehicle registry integration, CRM, accounting, Fortnox, Blocket, inventory/ERP, financing, warranties, automated valuation, AI descriptions, chart dashboards or native apps.
 
 ## Product language and units
 

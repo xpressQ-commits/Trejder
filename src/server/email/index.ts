@@ -1,4 +1,5 @@
 import { renderInviteEmail } from "./templates/invite";
+import { renderPrivateRegistrationEmail } from "./templates/private-registration";
 
 export type TransactionalMessage = {
   from?: string;
@@ -10,6 +11,14 @@ export type TransactionalMessage = {
 
 export interface EmailTransport {
   send(message: TransactionalMessage): Promise<void>;
+}
+
+export async function sendPrivateRegistrationEmail(input: { email: string; name: string; token: string }): Promise<void> {
+  const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  const verifyUrl = new URL(`/privatkund/verifiera/${encodeURIComponent(input.token)}`, baseUrl);
+  const logoUrl = new URL("/brand/trejder-email.png", baseUrl);
+  const message = renderPrivateRegistrationEmail({ verifyUrl: verifyUrl.toString(), name: input.name, logoUrl: logoUrl.toString() });
+  await getEmailTransport().send({ to: input.email, subject: message.subject, text: message.text, html: message.html });
 }
 
 class DevelopmentEmailTransport implements EmailTransport {

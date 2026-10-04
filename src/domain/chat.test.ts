@@ -12,7 +12,7 @@ const parties = {
 describe("chat identity policy", () => {
   it("keeps the buyer anonymous to the seller before an accepted winning bid", () => {
     expect(dealerCounterpartyLabel({ ...parties, viewerCompanyId: "seller", identityRevealed: false }))
-      .toBe("Anonym köpare #3");
+      .toBe("Handlare C");
   });
 
   it("reveals the buyer to the seller only after a match", () => {
@@ -20,8 +20,13 @@ describe("chat identity policy", () => {
       .toBe("Hemliga Köparen AB");
   });
 
-  it("always lets the buyer see the seller identity", () => {
+  it("keeps the private seller anonymous to the buyer before a match", () => {
     expect(dealerCounterpartyLabel({ ...parties, viewerCompanyId: "buyer", identityRevealed: false }))
+      .toBe("Säljaren");
+  });
+
+  it("reveals the seller to the winning buyer after a match", () => {
+    expect(dealerCounterpartyLabel({ ...parties, viewerCompanyId: "buyer", identityRevealed: true }))
       .toBe("Säljaren AB");
   });
 

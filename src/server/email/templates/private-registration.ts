@@ -1,0 +1,6 @@
+import { emailColors, escapeHtml, renderEmailLayout } from "./layout";
+
+export function renderPrivateRegistrationEmail(input: { verifyUrl: string; name: string; logoUrl: string }) {
+  const content = `<h1 class="email-heading" style="margin:0 0 18px;color:${emailColors.foreground};font-size:30px;line-height:38px;font-weight:700;">Verifiera ditt privatkonto</h1><p class="email-copy" style="margin:0 0 24px;color:${emailColors.foreground};font-size:16px;line-height:25px;">Hej ${escapeHtml(input.name)}! Bekräfta din e-postadress för att börja sälja din bil på Trejder.</p><a class="email-button" href="${escapeHtml(input.verifyUrl)}" style="display:inline-block;padding:15px 24px;color:#fff;background:${emailColors.primary};font-weight:700;text-decoration:none;border-radius:10px;">Verifiera e-postadress</a><p class="email-muted" style="margin:24px 0 0;color:${emailColors.muted};font-size:13px;line-height:20px;">Länken gäller i 24 timmar. Har du inte skapat kontot kan du bortse från mejlet.</p>`;
+  return { subject: "Verifiera ditt privatkonto hos Trejder", text: `Hej ${input.name}! Verifiera ditt konto: ${input.verifyUrl}\n\nLänken gäller i 24 timmar.`, html: renderEmailLayout({ title: "Verifiera ditt privatkonto", content, logoUrl: input.logoUrl, preheader: "Verifiera ditt privatkonto hos Trejder" }) };
+}

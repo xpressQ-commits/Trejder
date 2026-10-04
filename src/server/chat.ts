@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, max, or } from "drizzle-orm";
+import { and, asc, desc, eq, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { dealerCounterpartyLabel, normalizeChatBody } from "@/domain/chat";
+import { containsContactInformation } from "@/domain/contact-content";
 import { getDb } from "@/server/db";
-import { auditLog, chatMessage, chatThread, company, match, user, vehicleListing } from "@/server/db/schema";
+import { auditLog, bid, chatMessage, chatThread, company, companyMembership, match, notification, user, vehicleListing } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
 
 const seller = alias(company, "chat_seller");
@@ -10,6 +11,8 @@ const buyer = alias(company, "chat_buyer");
 
 type ThreadRow = {
   id: string;
+  bidId: string | null;
+  bidStatus: "active" | "withdrawn" | "accepted" | "lost" | null;
   listingId: string;
   sellerCompanyId: string;
   buyerCompanyId: string;
@@ -41,6 +44,8 @@ export type DealerChatMessageDto = {
 
 const threadSelection = {
   id: chatThread.id,
+  bidId: chatThread.bidId,
+  bidStatus: bid.status,
   listingId: chatThread.listingId,
   sellerCompanyId: chatThread.sellerCompanyId,
   buyerCompanyId: chatThread.buyerCompanyId,
@@ -87,6 +92,7 @@ function baseThreadQuery() {
     .innerJoin(vehicleListing, eq(vehicleListing.id, chatThread.listingId))
     .innerJoin(seller, eq(seller.id, chatThread.sellerCompanyId))
     .innerJoin(buyer, eq(buyer.id, chatThread.buyerCompanyId))
+    .leftJoin(bid, eq(bid.id, chatThread.bidId))
     .leftJoin(match, eq(match.listingId, chatThread.listingId));
 }
 
@@ -127,42 +133,42 @@ export async function getDealerChatThread(companyId: string, threadId: string) {
 }
 
 export async function createOrGetChatThread(input: {
-  listingId: string;
-  buyerCompanyId: string;
+  bidId: string;
+  actorCompanyId: string;
   actorUserId: string;
 }) {
   const threadId = await getDb().transaction(async (tx) => {
+    const [placedBid] = await tx.select().from(bid).where(eq(bid.id, input.bidId)).for("update");
+    if (!placedBid || !["active", "accepted"].includes(placedBid.status)) throw new AccessError(404, "BID_NOT_FOUND");
     const [listing] = await tx.select({
       id: vehicleListing.id,
       sellerCompanyId: vehicleListing.sellerCompanyId,
       status: vehicleListing.status,
-    }).from(vehicleListing).where(eq(vehicleListing.id, input.listingId)).for("update");
-    if (!listing || listing.status !== "active") throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
-    if (listing.sellerCompanyId === input.buyerCompanyId) throw new AccessError(409, "CHAT_SELF_CONVERSATION");
+    }).from(vehicleListing).where(eq(vehicleListing.id, placedBid.listingId)).for("update");
+    if (!listing || !["active", "matched"].includes(listing.status)) throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
+    if (input.actorCompanyId !== placedBid.bidderCompanyId && input.actorCompanyId !== listing.sellerCompanyId) throw new AccessError(404, "BID_NOT_FOUND");
     const [existing] = await tx.select({ id: chatThread.id }).from(chatThread).where(and(
-      eq(chatThread.listingId, listing.id),
-      eq(chatThread.buyerCompanyId, input.buyerCompanyId),
+      eq(chatThread.bidId, placedBid.id),
     )).limit(1);
     if (existing) return existing.id;
-    const [aliasRow] = await tx.select({ value: max(chatThread.anonymousNumber) }).from(chatThread)
-      .where(eq(chatThread.listingId, listing.id));
     const [created] = await tx.insert(chatThread).values({
       listingId: listing.id,
+      bidId: placedBid.id,
       sellerCompanyId: listing.sellerCompanyId,
-      buyerCompanyId: input.buyerCompanyId,
-      anonymousNumber: (aliasRow.value ?? 0) + 1,
+      buyerCompanyId: placedBid.bidderCompanyId,
+      anonymousNumber: placedBid.anonymousNumber,
     }).returning({ id: chatThread.id });
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
-      actorCompanyId: input.buyerCompanyId,
+      actorCompanyId: input.actorCompanyId,
       action: "chat_thread.created",
       aggregateType: "chat_thread",
       aggregateId: created.id,
-      metadata: { listingId: listing.id },
+      metadata: { listingId: listing.id, bidId: placedBid.id },
     });
     return created.id;
   });
-  return getDealerChatThread(input.buyerCompanyId, threadId);
+  return getDealerChatThread(input.actorCompanyId, threadId);
 }
 
 export async function sendChatMessage(input: {
@@ -174,7 +180,10 @@ export async function sendChatMessage(input: {
   let body: string;
   try { body = normalizeChatBody(input.body); }
   catch { throw new AccessError(400, "INVALID_CHAT_MESSAGE"); }
-  await getParticipantThread(input.companyId, input.threadId);
+  const participantThread = await getParticipantThread(input.companyId, input.threadId);
+  if (!participantThread.bidId) throw new AccessError(409, "BID_REQUIRED_FOR_CHAT");
+  if (participantThread.bidStatus !== "active" && participantThread.bidStatus !== "accepted") throw new AccessError(409, "CHAT_NOT_ACTIVE");
+  if (!identityRevealed(participantThread) && containsContactInformation(body)) throw new AccessError(400, "CONTACT_INFORMATION_NOT_ALLOWED");
   await getDb().transaction(async (tx) => {
     const [created] = await tx.insert(chatMessage).values({
       threadId: input.threadId,
@@ -191,6 +200,9 @@ export async function sendChatMessage(input: {
       aggregateId: input.threadId,
       metadata: { messageId: created.id },
     });
+    const recipientCompanyId = input.companyId === participantThread.sellerCompanyId ? participantThread.buyerCompanyId : participantThread.sellerCompanyId;
+    const recipients = await tx.select({ userId: companyMembership.userId }).from(companyMembership).where(and(eq(companyMembership.companyId, recipientCompanyId), eq(companyMembership.status, "active")));
+    if (recipients.length) await tx.insert(notification).values(recipients.map(({ userId }) => ({ recipientUserId: userId, type: "chat.message", body: "Du har fått ett nytt meddelande", resourceType: "chat_thread", resourceId: input.threadId })));
   });
   return getDealerChatThread(input.companyId, input.threadId);
 }

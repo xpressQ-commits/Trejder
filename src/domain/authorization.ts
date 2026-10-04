@@ -1,4 +1,4 @@
-export const roles = ["admin", "trader", "viewer"] as const;
+export const roles = ["admin", "trader", "viewer", "private_customer"] as const;
 export type Role = (typeof roles)[number];
 
 export const permissions = [
@@ -26,6 +26,7 @@ const grants = {
     "match:accept",
   ],
   viewer: ["company:read", "listing:read", "bid:read", "match:read"],
+  private_customer: ["company:read", "listing:read", "listing:mutate", "bid:read", "match:read", "match:accept"],
 } as const satisfies Record<Role, readonly Permission[]>;
 
 export function hasPermission(role: Role, permission: Permission): boolean {

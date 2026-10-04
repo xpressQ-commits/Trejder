@@ -85,6 +85,13 @@
       "when": 1791149723850,
       "tag": "0011_futuristic_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791152491713,
+      "tag": "0012_brave_power_pack",
+      "breakpoints": true
     }
   ]
 }

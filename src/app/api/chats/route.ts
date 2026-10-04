@@ -4,7 +4,7 @@ import { ACTIVE_COMPANY_COOKIE, requireCompanyPermission } from "@/server/compan
 import { createOrGetChatThread, listDealerChatThreads } from "@/server/chat";
 import { AccessError, assertSameOrigin, errorResponse } from "@/server/security";
 
-const createSchema = z.object({ listingId: z.uuid() }).strict();
+const createSchema = z.object({ bidId: z.uuid() }).strict();
 
 async function context(request: Request, mutate: boolean) {
   const companyId = (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
@@ -21,12 +21,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
-    const current = await context(request, true);
+    const companyId = (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
+    const current = await requireCompanyPermission(request.headers, companyId, "bid:read");
+    if (current.membership.role === "viewer") throw new AccessError(403, "FORBIDDEN");
     const parsed = createSchema.safeParse(await request.json());
     if (!parsed.success) throw new AccessError(400, "INVALID_REQUEST");
     return Response.json(await createOrGetChatThread({
-      listingId: parsed.data.listingId,
-      buyerCompanyId: current.company.id,
+      bidId: parsed.data.bidId,
+      actorCompanyId: current.company.id,
       actorUserId: current.user.id,
     }), { status: 201 });
   } catch (error) { return errorResponse(error); }

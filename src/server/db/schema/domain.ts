@@ -17,7 +17,8 @@ import {
 import { user } from "./auth";
 
 export const companyStatus = pgEnum("company_status", ["active", "suspended"]);
-export const membershipRole = pgEnum("membership_role", ["admin", "trader", "viewer"]);
+export const companyKind = pgEnum("company_kind", ["dealer", "private"]);
+export const membershipRole = pgEnum("membership_role", ["admin", "trader", "viewer", "private_customer"]);
 export const membershipStatus = pgEnum("membership_status", ["active", "suspended", "revoked"]);
 export const invitationStatus = pgEnum("invitation_status", [
   "pending",
@@ -42,6 +43,7 @@ export const plateRedactionStatus = pgEnum("plate_redaction_status", [
 ]);
 export const bidStatus = pgEnum("bid_status", ["active", "withdrawn", "accepted", "lost"]);
 export const accountApplicationStatus = pgEnum("account_application_status", ["pending", "approved", "rejected"]);
+export const questionStatus = pgEnum("listing_question_status", ["published", "hidden", "removed"]);
 
 export const accountApplication = pgTable("account_applications", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -68,6 +70,7 @@ export const company = pgTable("companies", {
   organizationNumber: varchar("organization_number", { length: 20 }).notNull().unique(),
   contactEmail: varchar("contact_email", { length: 320 }).notNull(),
   contactPhone: varchar("contact_phone", { length: 40 }),
+  kind: companyKind("kind").notNull().default("dealer"),
   status: companyStatus("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -75,6 +78,22 @@ export const company = pgTable("companies", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+export const privateRegistration = pgTable("private_registrations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: varchar("email", { length: 320 }).notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  passwordHash: text("password_hash").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("private_registrations_pending_email_uq")
+    .on(sql`lower(${table.email})`)
+    .where(sql`${table.consumedAt} IS NULL`),
+]);
 
 export const companyMembership = pgTable(
   "company_memberships",
@@ -308,11 +327,53 @@ export const match = pgTable(
   ],
 );
 
+export const listingParticipantAlias = pgTable("listing_participant_aliases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  listingId: uuid("listing_id").notNull().references(() => vehicleListing.id, { onDelete: "cascade" }),
+  companyId: uuid("company_id").notNull().references(() => company.id, { onDelete: "restrict" }),
+  anonymousNumber: integer("anonymous_number").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("listing_participant_alias_company_uq").on(table.listingId, table.companyId),
+  uniqueIndex("listing_participant_alias_number_uq").on(table.listingId, table.anonymousNumber),
+  check("listing_participant_alias_number_positive", sql`${table.anonymousNumber} > 0`),
+]);
+
+export const listingQuestion = pgTable("listing_questions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  listingId: uuid("listing_id").notNull().references(() => vehicleListing.id, { onDelete: "cascade" }),
+  authorCompanyId: uuid("author_company_id").notNull().references(() => company.id, { onDelete: "restrict" }),
+  authorUserId: text("author_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+  body: varchar("body", { length: 1000 }).notNull(),
+  status: questionStatus("status").notNull().default("published"),
+  moderationReason: varchar("moderation_reason", { length: 200 }),
+  answerBody: varchar("answer_body", { length: 1000 }),
+  answeredByUserId: text("answered_by_user_id").references(() => user.id, { onDelete: "restrict" }),
+  answeredAt: timestamp("answered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("listing_questions_listing_created_idx").on(table.listingId, table.createdAt),
+  check("listing_questions_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+]);
+
+export const notification = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recipientUserId: text("recipient_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 80 }).notNull(),
+  body: varchar("body", { length: 240 }).notNull(),
+  resourceType: varchar("resource_type", { length: 40 }).notNull(),
+  resourceId: text("resource_id").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("notifications_recipient_created_idx").on(table.recipientUserId, table.createdAt)]);
+
 export const chatThread = pgTable(
   "chat_threads",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     listingId: uuid("listing_id").notNull(),
+    bidId: uuid("bid_id").references(() => bid.id, { onDelete: "restrict" }),
     sellerCompanyId: uuid("seller_company_id")
       .notNull()
       .references(() => company.id, { onDelete: "restrict" }),
@@ -333,6 +394,7 @@ export const chatThread = pgTable(
       name: "chat_threads_listing_and_seller_fk",
     }).onDelete("restrict"),
     uniqueIndex("chat_threads_listing_buyer_uq").on(table.listingId, table.buyerCompanyId),
+    uniqueIndex("chat_threads_bid_uq").on(table.bidId),
     uniqueIndex("chat_threads_listing_alias_uq").on(table.listingId, table.anonymousNumber),
     index("chat_threads_seller_updated_idx").on(table.sellerCompanyId, table.updatedAt),
     index("chat_threads_buyer_updated_idx").on(table.buyerCompanyId, table.updatedAt),

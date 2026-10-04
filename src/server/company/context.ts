@@ -11,7 +11,7 @@ export const ACTIVE_COMPANY_COOKIE = "trejder_company";
 export type AuthenticatedUser = { id: string; email: string; name: string };
 export type ActiveCompanyContext = {
   user: AuthenticatedUser;
-  company: { id: string; legalName: string; organizationNumber: string };
+  company: { id: string; legalName: string; organizationNumber: string; kind: "dealer" | "private" };
   membership: { id: string; role: Role };
 };
 
@@ -35,6 +35,7 @@ export async function listActiveCompanyContexts(userId: string) {
       companyId: company.id,
       legalName: company.legalName,
       organizationNumber: company.organizationNumber,
+      kind: company.kind,
       role: companyMembership.role,
     })
     .from(companyMembership)
@@ -57,7 +58,7 @@ export async function requireActiveCompanyContext(
   if (!selected) throw new AccessError(403, selectedCompanyId ? "INVALID_COMPANY_CONTEXT" : "COMPANY_SELECTION_REQUIRED");
   return {
     user,
-    company: { id: selected.companyId, legalName: selected.legalName, organizationNumber: selected.organizationNumber },
+    company: { id: selected.companyId, legalName: selected.legalName, organizationNumber: selected.organizationNumber, kind: selected.kind },
     membership: { id: selected.membershipId, role: selected.role },
   };
 }
@@ -69,5 +70,28 @@ export async function requireCompanyPermission(
 ): Promise<ActiveCompanyContext> {
   const context = await requireActiveCompanyContext(headers, selectedCompanyId);
   if (!hasPermission(context.membership.role, permission)) throw new AccessError(403, "FORBIDDEN");
+  return context;
+}
+
+export async function requireDealerPermission(
+  headers: Headers,
+  selectedCompanyId: string | null,
+  permission: Permission,
+): Promise<ActiveCompanyContext> {
+  const context = await requireCompanyPermission(headers, selectedCompanyId, permission);
+  if (context.company.kind !== "dealer" || context.membership.role === "private_customer") {
+    throw new AccessError(403, "DEALER_ACCESS_REQUIRED");
+  }
+  return context;
+}
+
+export async function requirePrivateCustomerContext(
+  headers: Headers,
+  selectedCompanyId: string | null,
+): Promise<ActiveCompanyContext> {
+  const context = await requireActiveCompanyContext(headers, selectedCompanyId);
+  if (context.company.kind !== "private" || context.membership.role !== "private_customer") {
+    throw new AccessError(403, "PRIVATE_CUSTOMER_ACCESS_REQUIRED");
+  }
   return context;
 }

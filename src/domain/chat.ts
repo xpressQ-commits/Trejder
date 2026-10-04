@@ -7,8 +7,8 @@ export function dealerCounterpartyLabel(input: {
   anonymousNumber: number;
   identityRevealed: boolean;
 }): string {
-  if (input.viewerCompanyId === input.buyerCompanyId) return input.sellerName;
-  return input.identityRevealed ? input.buyerName : `Anonym köpare #${input.anonymousNumber}`;
+  if (input.viewerCompanyId === input.buyerCompanyId) return input.identityRevealed ? input.sellerName : "Säljaren";
+  return input.identityRevealed ? input.buyerName : `Handlare ${String.fromCharCode(64 + Math.min(input.anonymousNumber, 26))}`;
 }
 
 export function normalizeChatBody(value: string): string {

@@ -38,6 +38,10 @@ Create/update/withdraw bid, listing-scoped bidder aliases and seller bid view. S
 
 Transactional acceptance of any valid bid, concurrency/idempotency tests, immutable commercial snapshots and bilateral identity reveal. Payments remain out of scope.
 
+## Phase 6 — Private sellers (approved)
+
+Verified private-customer onboarding, seller-only navigation and listings, anonymous public Q&A, dealer bidding, bid-gated anonymous messaging, transactional acceptance, matched-party identity reveal, retained-history deal chat and identity-safe notifications.
+
 ## Later, separately approved
 
-Billing operations and, after discovery, private sellers. Do not pre-build either.
+Billing operations.

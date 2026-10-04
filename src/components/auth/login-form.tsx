@@ -45,6 +45,7 @@ export function LoginForm({ returnTo = "/app", invitationAccepted = false }: { r
       <div className="flex flex-col gap-3 pt-1">
         <button type="submit" disabled={pending} className={primaryButtonClassName}>{pending ? "Loggar in…" : "Logga in"}</button>
         <Link href="/glomt-losenord" className="inline-flex min-h-11 items-center justify-center rounded-lg font-semibold text-[var(--primary)] hover:underline">Glömt lösenordet?</Link>
+        <Link href="/privatkund/skapa-konto" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border)] font-semibold text-[var(--primary)] hover:bg-[var(--surface-subtle)]">Sälj din bil som privatperson</Link>
       </div>
     </form>
   );

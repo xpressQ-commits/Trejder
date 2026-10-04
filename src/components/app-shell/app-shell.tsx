@@ -1,4 +1,4 @@
-import { Building2, CarFront, MessageCircle, Settings, ShieldCheck, Store, Users } from "lucide-react";
+import { BadgeDollarSign, Building2, CarFront, Handshake, LayoutDashboard, MessageCircle, Settings, ShieldCheck, Store, Users } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CompanySwitcher, LogoutButton } from "@/components/app-shell/session-controls";
@@ -6,8 +6,17 @@ import { BrandLogo } from "@/components/brand-logo";
 
 type CompanyOption = { companyId: string; legalName: string };
 
-export function AppShell({ children, userName, companyName, companyId, role, companies, isPlatformAdmin = false }: { children: ReactNode; userName: string; companyName: string; companyId: string; role: "admin" | "trader" | "viewer"; companies: CompanyOption[]; isPlatformAdmin?: boolean }) {
-  const navigation = [
+export function AppShell({ children, userName, companyName, companyId, role, companies, isPlatformAdmin = false }: { children: ReactNode; userName: string; companyName: string; companyId: string; role: "admin" | "trader" | "viewer" | "private_customer"; companies: CompanyOption[]; isPlatformAdmin?: boolean }) {
+  const isPrivateCustomer = role === "private_customer";
+  const navigation = isPrivateCustomer ? [
+    { href: "/app/oversikt", label: "Översikt", icon: LayoutDashboard },
+    { href: "/app/bilar/ny", label: "Sälj din bil", icon: CarFront },
+    { href: "/app/bilar", label: "Mina annonser", icon: Store },
+    { href: "/app/bud", label: "Bud", icon: BadgeDollarSign },
+    { href: "/app/chattar", label: "Meddelanden", icon: MessageCircle },
+    { href: "/app/affarer", label: "Affärer", icon: Handshake },
+    { href: "/app/installningar", label: "Konto", icon: Settings },
+  ] : [
     { href: "/app/marknad", label: "Marknad", icon: Store },
     { href: "/app/bilar", label: "Mina bilar", icon: CarFront },
     { href: "/app/chattar", label: "Chattar", icon: MessageCircle },
@@ -16,10 +25,11 @@ export function AppShell({ children, userName, companyName, companyId, role, com
     ...(isPlatformAdmin ? [{ href: "/admin", label: "Superadmin", icon: ShieldCheck }] : []),
     { href: "/app/installningar", label: "Inställningar", icon: Settings },
   ];
+  const homeHref = isPrivateCustomer ? "/app/oversikt" : "/app/marknad";
   return <div className="min-h-screen bg-[var(--background)] lg:grid lg:grid-cols-[16rem_1fr]">
     <aside className="border-b border-[#244943] bg-[#0f2e2a] text-white lg:min-h-screen lg:border-r lg:border-b-0">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 lg:block lg:px-5 lg:py-6">
-        <Link href="/app/marknad" aria-label="Trejder – marknaden" className="inline-flex items-center gap-3"><BrandLogo compact inverse /><span className="hidden text-xl font-semibold tracking-[-0.04em] sm:inline">Trejder</span></Link>
+        <Link href={homeHref} aria-label="Trejder" className="inline-flex items-center gap-3"><BrandLogo compact inverse /><span className="hidden text-xl font-semibold tracking-[-0.04em] sm:inline">Trejder</span></Link>
         <div className="lg:hidden"><LogoutButton compact /></div>
         <div className="mt-7 hidden lg:block"><CompanySwitcher companies={companies} selectedCompanyId={companyId} /></div>
         <nav aria-label="Huvudnavigation" className="mt-6 hidden lg:block"><ul className="space-y-1">{navigation.map(({ href, label, icon: Icon }) => <li key={href}><Link href={href} className="flex min-h-11 items-center gap-3 rounded-lg px-3 font-medium text-white/90 transition-colors hover:bg-white/12 hover:text-white"><Icon aria-hidden="true" size={19} />{label}</Link></li>)}</ul></nav>

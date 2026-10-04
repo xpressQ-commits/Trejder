@@ -18,6 +18,8 @@ Before acceptance, seller APIs return an explicit allow-list only: opaque listin
 
 Identity is revealed only through a completed-match projection to the matched seller and buyer.
 
+Private-customer accounts use a dedicated `private_customer` membership role and a server-owned private company context. They may mutate only their own listings and seller-side bid/Q&A/deal resources. Marketplace reads, bidding and dealer-company administration require a dealer company context and are denied server-side. Public Q&A and pre-accept bid messages use allow-listed anonymous DTOs and reject contact-sharing content server-side. Q&A aliases are allocated per listing and never reused as a global identity.
+
 ### Money and commercial terms
 
 Money is integer öre. The current server policy is 49,900 öre excluding VAT on each side of a dealer match. Acceptance snapshots both fees and a terms version in the Match. Client-supplied amount, fee, party or state fields cannot populate the match.

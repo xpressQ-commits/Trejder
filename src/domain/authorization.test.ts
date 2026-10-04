@@ -13,6 +13,7 @@ const expectedGrants = {
     "match:accept",
   ]),
   viewer: new Set<Permission>(["company:read", "listing:read", "bid:read", "match:read"]),
+  private_customer: new Set<Permission>(["company:read", "listing:read", "listing:mutate", "bid:read", "match:read", "match:accept"]),
 } satisfies Record<Role, ReadonlySet<Permission>>;
 
 describe("role permissions", () => {
@@ -36,6 +37,13 @@ describe("role permissions", () => {
     expect(hasPermission("trader", "match:accept")).toBe(true);
     expect(hasPermission("trader", "members:manage")).toBe(false);
     expect(hasPermission("trader", "company:manage")).toBe(false);
+  });
+
+  it("lets private customers sell and accept without buying or administering a company", () => {
+    expect(hasPermission("private_customer", "listing:mutate")).toBe(true);
+    expect(hasPermission("private_customer", "match:accept")).toBe(true);
+    expect(hasPermission("private_customer", "bid:mutate")).toBe(false);
+    expect(hasPermission("private_customer", "members:manage")).toBe(false);
   });
 
   it("keeps viewers read-only", () => {

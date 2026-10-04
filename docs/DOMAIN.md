@@ -12,6 +12,8 @@
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.
 - **Match:** immutable result of accepting one bid, including amount and historical commercial terms.
 - **AuditLog:** append-only security and domain event record with sanitized metadata.
+- **ListingQuestion:** public, permanently anonymous dealer question with at most one seller answer.
+- **Notification:** identity-safe in-app event for one user.
 
 ## Invariants encoded in the schema
 
@@ -40,6 +42,16 @@ Listing:
 - `active -> withdrawn`: ADMIN/TRADER of seller if no match exists.
 - `active -> matched`: only the bid acceptance transaction.
 - `matched` and `withdrawn` are terminal in the initial product.
+
+## Private-customer communication matrix
+
+| State | Public Q&A | Private bid thread | Identity | Contact details |
+| --- | --- | --- | --- | --- |
+| No bid | dealer asks, seller answers | forbidden | anonymous | blocked |
+| Active bid | remains available | bidder and seller only, keyed by bid | anonymous | blocked |
+| Accepted bid | remains visible and anonymous | becomes full retained-history deal chat | revealed only to matched parties | allowed only in matched chat |
+
+Public Q&A never creates private-message authority. A private thread requires a valid bid owned by the dealer company and belonging to the seller-owned listing. Acceptance is the only identity-reveal transition.
 
 Bid:
 
