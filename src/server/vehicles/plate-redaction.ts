@@ -50,7 +50,6 @@ class PlateRecognizerDetector implements PlateDetector {
       const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1];
       body.set("upload", new Blob([Buffer.from(bytes)], { type: mimeType }), `vehicle.${extension}`);
       body.append("regions", "se");
-      body.append("regions", "eu");
       const response = await fetch(this.endpoint, {
         method: "POST",
         headers: { Authorization: `Token ${this.token}` },

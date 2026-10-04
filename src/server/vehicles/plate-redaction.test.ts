@@ -64,6 +64,8 @@ describe("vehicle plate redaction", () => {
     await expect(redactVehicleImage(source, "image/jpeg"))
       .resolves.toMatchObject({ status: "NO_PLATE_DETECTED", error: null });
     expect(provider).toHaveBeenCalledTimes(2);
+    const request = provider.mock.calls[1]?.[1] as RequestInit | undefined;
+    expect((request?.body as FormData).getAll("regions")).toEqual(["se"]);
   });
 });
 
