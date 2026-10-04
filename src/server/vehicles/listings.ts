@@ -302,6 +302,49 @@ export async function withdrawListing(input: {
   return getOwnListing(input.companyId, input.listingId);
 }
 
+export async function deleteDraft(input: {
+  companyId: string;
+  listingId: string;
+  actorUserId: string;
+}): Promise<void> {
+  const objectKeys = await getDb().transaction(async (tx) => {
+    const [listing] = await tx.select().from(vehicleListing).where(and(
+      eq(vehicleListing.id, input.listingId),
+      eq(vehicleListing.sellerCompanyId, input.companyId),
+    )).for("update");
+    if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
+    if (listing.status !== "draft") throw new AccessError(409, "DRAFT_DELETE_ONLY");
+
+    const images = await tx.select({ objectKey: vehicleImage.objectKey })
+      .from(vehicleImage)
+      .where(eq(vehicleImage.listingId, listing.id));
+    await tx.delete(vehicleListing).where(and(
+      eq(vehicleListing.id, listing.id),
+      eq(vehicleListing.sellerCompanyId, input.companyId),
+      eq(vehicleListing.status, "draft"),
+    ));
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.companyId,
+      action: "vehicle_listing.deleted",
+      aggregateType: "vehicle_listing",
+      aggregateId: listing.id,
+      metadata: { previousStatus: "draft", imageCount: images.length },
+    });
+    return images.map((image) => image.objectKey);
+  });
+
+  const storage = getImageStorage();
+  const results = await Promise.allSettled(objectKeys.map((objectKey) => storage.delete(objectKey)));
+  const failedCount = results.filter((result) => result.status === "rejected").length;
+  if (failedCount > 0) {
+    console.error("Failed to delete private images for removed draft", {
+      listingId: input.listingId,
+      failedCount,
+    });
+  }
+}
+
 export async function putListingImage(input: {
   companyId: string;
   listingId: string;

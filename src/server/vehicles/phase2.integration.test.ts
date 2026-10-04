@@ -77,11 +77,30 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
   });
 
   it("keeps Company B drafts unreadable and immutable to Company A", async () => {
-    const { createDraft, getOwnListing, updateOwnListing } = await import("./listings");
+    const { createDraft, deleteDraft, getOwnListing, updateOwnListing } = await import("./listings");
     const draft = await createDraft({ companyId: companyB, actorUserId: traderB, values: values(1200) });
     await expect(getOwnListing(companyA, draft.id)).rejects.toMatchObject({ status: 404 });
     await expect(updateOwnListing({ companyId: companyA, listingId: draft.id, actorUserId: traderA, values: { shortComment: "Intrång" } }))
       .rejects.toMatchObject({ status: 404 });
+    await expect(deleteDraft({ companyId: companyA, listingId: draft.id, actorUserId: traderA }))
+      .rejects.toMatchObject({ status: 404 });
+  });
+
+  it("deletes only drafts and removes their private images", async () => {
+    const { createDraft, deleteDraft, getOwnListing, publishListing, putListingImage } = await import("./listings");
+    const draft = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(1300) });
+    const withImage = await putListingImage({ companyId: companyA, listingId: draft.id, actorUserId: traderA, position: 1, claimedMime: "image/jpeg", bytes: jpeg });
+    expect(storage.objects.size).toBeGreaterThan(0);
+    await deleteDraft({ companyId: companyA, listingId: draft.id, actorUserId: traderA });
+    await expect(getOwnListing(companyA, draft.id)).rejects.toMatchObject({ status: 404 });
+    expect(storage.objects.size).toBe(0);
+
+    const active = await createDraft({ companyId: companyA, actorUserId: traderA, values: values(1301) });
+    await putListingImage({ companyId: companyA, listingId: active.id, actorUserId: traderA, position: 1, claimedMime: "image/jpeg", bytes: jpeg });
+    await publishListing({ companyId: companyA, listingId: active.id, actorUserId: traderA });
+    await expect(deleteDraft({ companyId: companyA, listingId: active.id, actorUserId: traderA }))
+      .rejects.toMatchObject({ code: "DRAFT_DELETE_ONLY" });
+    expect(withImage.images).toHaveLength(1);
   });
 
   it("keeps VIEWER read-only while TRADER can create and edit a draft", async () => {

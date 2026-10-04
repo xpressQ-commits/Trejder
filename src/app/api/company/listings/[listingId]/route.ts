@@ -1,5 +1,5 @@
 import { assertSameOrigin, AccessError, errorResponse } from "@/server/security";
-import { getOwnListing, updateOwnListing } from "@/server/vehicles/listings";
+import { deleteDraft, getOwnListing, updateOwnListing } from "@/server/vehicles/listings";
 import {
   listingInputSchema,
   parseListingId,
@@ -41,6 +41,25 @@ export async function PATCH(
         values: parsed.data,
       }),
     });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  route: { params: Promise<{ listingId: string }> },
+) {
+  try {
+    assertSameOrigin(request);
+    const context = await requireListingContext(request, true);
+    const listingId = parseListingId((await route.params).listingId);
+    await deleteDraft({
+      companyId: context.company.id,
+      listingId,
+      actorUserId: context.user.id,
+    });
+    return new Response(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);
   }
