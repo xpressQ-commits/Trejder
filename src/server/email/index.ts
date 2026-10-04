@@ -73,12 +73,13 @@ export function getEmailTransport(): EmailTransport {
     : new UnconfiguredProductionTransport();
 }
 
-export async function sendInvitationEmail(input: { email: string; token: string }): Promise<void> {
+export async function sendInvitationEmail(input: { email: string; token: string; from?: string }): Promise<void> {
   const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
   const url = new URL(`/inbjudan/${encodeURIComponent(input.token)}`, baseUrl);
   const logoUrl = new URL("/brand/trejder-email.png", baseUrl);
   const message = renderInviteEmail({ inviteUrl: url.toString(), logoUrl: logoUrl.toString() });
   await getEmailTransport().send({
+    from: input.from,
     to: input.email,
     subject: message.subject,
     text: message.text,

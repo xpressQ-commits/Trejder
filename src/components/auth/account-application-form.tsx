@@ -16,7 +16,11 @@ export function AccountApplicationForm() {
       body: JSON.stringify(Object.fromEntries(data)),
     });
     if (response.ok) { form.reset(); setSent(true); }
-    else setError(true);
+    else {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (body?.error === "ACCOUNT_APPLICATION_PENDING") setSent(true);
+      else setError(true);
+    }
     setPending(false);
   }
 

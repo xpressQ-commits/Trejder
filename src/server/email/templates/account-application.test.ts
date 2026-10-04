@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { renderAccountApplicationNotification, renderAccountApplicationReceipt } from "./account-application";
+import { renderAccountApplicationNotification, renderAccountApplicationReceipt, renderAccountApplicationRejection } from "./account-application";
 
 describe("account application emails", () => {
   afterEach(() => { delete process.env.BETTER_AUTH_URL; });
@@ -20,5 +20,12 @@ describe("account application emails", () => {
     expect(message.text).toContain("inom 48 timmar");
     expect(message.text).toContain("inbjudningslänk");
     expect(message.html).not.toContain("/inbjudan/");
+  });
+
+  it("renders the rejection message with the support address", () => {
+    const message = renderAccountApplicationRejection({ firstName: "Anna" });
+    expect(message.text).toContain("kan vi inte godkänna er ansökan");
+    expect(message.text).toContain("info@trejder.se");
+    expect(message.html).toContain("mailto:info@trejder.se");
   });
 });

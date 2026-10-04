@@ -40,6 +40,16 @@ export function renderAccountApplicationReceipt(input: Pick<AccountApplication, 
   };
 }
 
+export function renderAccountApplicationRejection(input: Pick<AccountApplication, "firstName">) {
+  const subject = "Besked om din kontoansökan till Trejder";
+  const content = `<h1 class="email-heading" style="margin:0 0 18px;color:${emailColors.foreground};font-size:30px;line-height:38px;font-weight:700;letter-spacing:-0.02em;">Hej ${escapeHtml(input.firstName)}</h1><p class="email-copy" style="margin:0 0 18px;color:${emailColors.foreground};font-size:16px;line-height:25px;">Tyvärr kan vi inte godkänna er ansökan för tillfället.</p><p class="email-copy" style="margin:0;color:${emailColors.foreground};font-size:16px;line-height:25px;">Kontakta oss på <a href="mailto:info@trejder.se" style="color:${emailColors.primary};font-weight:700;">info@trejder.se</a> om ni önskar mer information.</p>`;
+  return {
+    subject,
+    text: `Hej ${input.firstName},\n\nTyvärr kan vi inte godkänna er ansökan för tillfället. Kontakta oss på info@trejder.se om ni önskar mer information.`,
+    html: renderEmailLayout({ title: subject, preheader: "Besked om er kontoansökan.", logoUrl: logoUrl(), content }),
+  };
+}
+
 function logoUrl() {
   return new URL("/brand/trejder-email.png", process.env.BETTER_AUTH_URL ?? "http://localhost:3000").toString();
 }

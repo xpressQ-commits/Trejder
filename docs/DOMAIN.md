@@ -6,6 +6,7 @@
 - **User:** an authenticated human identity.
 - **CompanyMembership:** connects one user to one company with `ADMIN`, `TRADER` or `VIEWER` authority and an active, suspended or revoked state.
 - **CompanyInvitation:** one-time, expiring invitation to a company and role.
+- **AccountApplication:** public dealer application in pending, approved or rejected review state; it grants no access by itself.
 - **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag, 48–120 hour publication duration and server-controlled state.
 - **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 1–5 valid images; completed plate checks are required when redaction is configured.
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.

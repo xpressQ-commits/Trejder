@@ -32,7 +32,7 @@ Production database privileges should make match commercial snapshots and audit 
 
 - Database-backed revocable sessions; secure cookies in production.
 - Exact trusted origins and CSRF/origin protections for auth and application mutations.
-- Verified email is mandatory; public Better Auth sign-up is disabled. Public account applications only send review emails and never create access. Accounts are created through a one-time invitation or directly by a freshly authorized platform administrator for a selected company and role.
+- Verified email is mandatory; public Better Auth sign-up is disabled. Public account applications create review-only records and never create access. A freshly authorized platform administrator may approve an application, atomically create its company and pending initial-ADMIN invitation, and trigger delivery from `konto@trejder.se`; rejection sends a notice without creating access. Accounts may also be created directly by a platform administrator for a selected company and role.
 - Invitation tokens contain 256 bits of randomness and only SHA-256 hashes are stored. Company and role are loaded from the locked row; acceptance payloads cannot override them.
 - Existing accounts must be authenticated as the invitation email. A token may create a new verified credential identity because possession proves control of the destination mailbox.
 - Membership and company status are reloaded on every dealer request. Suspension or revocation therefore removes dealer access without relying on browser state or global session revocation.

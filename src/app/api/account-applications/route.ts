@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sendAccountApplication } from "@/server/account-applications";
+import { submitAccountApplication } from "@/server/account-applications";
 import { AccessError, assertSameOrigin, errorResponse, normalizeEmail } from "@/server/security";
 
 const schema = z.object({
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) throw new AccessError(400, "INVALID_ACCOUNT_APPLICATION");
-    await sendAccountApplication({
+    await submitAccountApplication({
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
       companyName: parsed.data.companyName,

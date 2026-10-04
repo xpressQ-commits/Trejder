@@ -28,7 +28,7 @@ The implementation and adversarial test coverage are complete in code. Migration
 
 ## Operational platform administration (implemented in code)
 
-An explicitly bootstrapped platform administrator has a separate `/admin` surface for global company operations. It can create and edit dealer companies, suspend or reactivate company access, change existing company memberships, and create an immediately active credential user for a selected company and explicit dealer role. All mutations require fresh platform authority, same-origin requests and audit records. Company removal is deliberately implemented as reversible suspension rather than destructive deletion. Public dealer applications are delivered for manual review and do not create application access.
+An explicitly bootstrapped platform administrator has a separate `/admin` surface for global company operations. It can create and edit dealer companies, suspend or reactivate company access, change existing company memberships, review public dealer applications, and create an immediately active credential user for a selected company and explicit dealer role. Application approval creates a company and initial ADMIN invitation; rejection records and emails the decision. All mutations require fresh platform authority, same-origin requests and audit records. Company removal is deliberately implemented as reversible suspension rather than destructive deletion. Public dealer applications never create application access on submission.
 
 ## Phase 4 — Anonymous bidding
 

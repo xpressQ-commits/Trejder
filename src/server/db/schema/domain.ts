@@ -41,6 +41,26 @@ export const plateRedactionStatus = pgEnum("plate_redaction_status", [
   "FAILED",
 ]);
 export const bidStatus = pgEnum("bid_status", ["active", "withdrawn", "accepted", "lost"]);
+export const accountApplicationStatus = pgEnum("account_application_status", ["pending", "approved", "rejected"]);
+
+export const accountApplication = pgTable("account_applications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  companyName: varchar("company_name", { length: 200 }).notNull(),
+  organizationNumber: varchar("organization_number", { length: 20 }).notNull(),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  status: accountApplicationStatus("status").notNull().default("pending"),
+  reviewedByUserId: text("reviewed_by_user_id").references(() => user.id, { onDelete: "restrict" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("account_applications_status_created_idx").on(table.status, table.createdAt),
+  uniqueIndex("account_applications_one_pending_email_uq")
+    .on(sql`lower(${table.email})`)
+    .where(sql`${table.status} = 'pending'`),
+]);
 
 export const company = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "account_applications_one_pending_email_uq" ON "account_applications" USING btree (lower("email")) WHERE "account_applications"."status" = 'pending';
