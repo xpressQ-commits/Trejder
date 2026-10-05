@@ -123,7 +123,7 @@ export function MarketplaceFeed({
           </p>
         </div>
       ) : (
-        <ul className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {listings.map((listing) => (
             <MarketplaceCard
               key={listing.id}
@@ -181,7 +181,7 @@ function MarketplaceCard({
               unoptimized
               loading="lazy"
               sizes="(min-width: 1280px) 22rem, (min-width: 768px) 45vw, 100vw"
-              className="object-cover transition-transform group-hover:scale-[1.01]"
+              className="object-contain p-1 transition-transform group-hover:scale-[1.01]"
             />
           ) : null}
         </div>

@@ -59,9 +59,9 @@ export function VehicleGallery({
 
   return (
     <>
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-2xl">
         <div
-          className="group relative aspect-[16/9] max-h-[27rem] overflow-hidden rounded-2xl bg-[var(--surface-subtle)]"
+          className="group relative h-[clamp(15rem,32vw,22rem)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)]"
           onTouchStart={(event) => {
             touchStart.current = event.touches[0]?.clientX;
           }}
@@ -81,8 +81,8 @@ export function VehicleGallery({
             fill
             unoptimized
             priority
-            sizes="(min-width: 1024px) 48rem, 100vw"
-            className="object-cover"
+            sizes="(min-width: 1024px) 42rem, 100vw"
+            className="object-contain"
           />
           <span className="pointer-events-none absolute top-3 right-3 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white">
             <Expand size={17} />
