@@ -151,6 +151,7 @@ export async function listMarketplaceListings(input: {
   }).from(vehicleImage)
     .where(and(
       inArray(vehicleImage.listingId, page.map(({ id }) => id)),
+      eq(vehicleImage.position, 1),
       inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
     ))
     .orderBy(asc(vehicleImage.position));

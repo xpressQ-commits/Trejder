@@ -45,13 +45,13 @@ Listing:
 
 ## Private-customer communication matrix
 
-| State | Public Q&A | Private bid thread | Identity | Contact details |
-| --- | --- | --- | --- | --- |
-| No bid | dealer asks, seller answers | forbidden | anonymous | blocked |
-| Active bid | remains available | bidder and seller only, keyed by bid | anonymous | blocked |
+| State        | Public Q&A                    | Private bid thread                      | Identity                         | Contact details              |
+| ------------ | ----------------------------- | --------------------------------------- | -------------------------------- | ---------------------------- |
+| No bid       | dealer asks, seller answers   | forbidden                               | anonymous                        | blocked                      |
+| Active bid   | remains available             | forbidden                               | anonymous                        | blocked                      |
 | Accepted bid | remains visible and anonymous | becomes full retained-history deal chat | revealed only to matched parties | allowed only in matched chat |
 
-Public Q&A never creates private-message authority. A private thread requires a valid bid owned by the dealer company and belonging to the seller-owned listing. Acceptance is the only identity-reveal transition.
+Public Q&A never creates private-message authority. A private thread requires a completed match keyed by its accepted bid and is accessible only to that match's seller and buyer. Acceptance is both the chat-authority and identity-reveal transition. Historical threads created before acceptance are retained for audit safety but are excluded from dealer reads and writes.
 
 Bid:
 

@@ -1,6 +1,10 @@
 import { Buffer } from "node:buffer";
 import { MAX_IMAGE_BYTES } from "@/server/storage/images";
-import { AccessError, assertSameOrigin, errorResponse } from "@/server/security";
+import {
+  AccessError,
+  assertSameOrigin,
+  errorResponse,
+} from "@/server/security";
 import {
   parseImagePosition,
   parseListingId,
@@ -11,6 +15,7 @@ import {
   readOwnListingImage,
   removeListingImage,
 } from "@/server/vehicles/listings";
+import { renderImageVariant } from "@/server/storage/image-variants";
 
 type ImageRoute = { params: Promise<{ listingId: string; position: string }> };
 
@@ -25,10 +30,15 @@ export async function GET(request: Request, route: ImageRoute) {
       listingId,
       position,
     });
-    return new Response(Buffer.from(image.bytes), {
+    const variant = await renderImageVariant(
+      request,
+      image.bytes,
+      image.mimeType,
+    );
+    return new Response(Buffer.from(variant.bytes), {
       headers: {
-        "Content-Type": image.mimeType,
-        "Cache-Control": "private, no-store",
+        "Content-Type": variant.mimeType,
+        "Cache-Control": "private, max-age=300",
         "Content-Disposition": "inline",
         "X-Content-Type-Options": "nosniff",
       },
@@ -56,14 +66,16 @@ export async function PUT(request: Request, route: ImageRoute) {
       throw new AccessError(400, "INVALID_IMAGE_SIZE");
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return Response.json({ listing: await putListingImage({
-      companyId: context.company.id,
-      listingId,
-      actorUserId: context.user.id,
-      position,
-      claimedMime: file.type,
-      bytes,
-    }) });
+    return Response.json({
+      listing: await putListingImage({
+        companyId: context.company.id,
+        listingId,
+        actorUserId: context.user.id,
+        position,
+        claimedMime: file.type,
+        bytes,
+      }),
+    });
   } catch (error) {
     return errorResponse(error);
   }
@@ -76,12 +88,14 @@ export async function DELETE(request: Request, route: ImageRoute) {
     const params = await route.params;
     const listingId = parseListingId(params.listingId);
     const position = parseImagePosition(params.position);
-    return Response.json({ listing: await removeListingImage({
-      companyId: context.company.id,
-      listingId,
-      actorUserId: context.user.id,
-      position,
-    }) });
+    return Response.json({
+      listing: await removeListingImage({
+        companyId: context.company.id,
+        listingId,
+        actorUserId: context.user.id,
+        position,
+      }),
+    });
   } catch (error) {
     return errorResponse(error);
   }

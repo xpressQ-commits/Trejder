@@ -18,15 +18,27 @@ import { user } from "./auth";
 
 export const companyStatus = pgEnum("company_status", ["active", "suspended"]);
 export const companyKind = pgEnum("company_kind", ["dealer", "private"]);
-export const membershipRole = pgEnum("membership_role", ["admin", "trader", "viewer", "private_customer"]);
-export const membershipStatus = pgEnum("membership_status", ["active", "suspended", "revoked"]);
+export const membershipRole = pgEnum("membership_role", [
+  "admin",
+  "trader",
+  "viewer",
+  "private_customer",
+]);
+export const membershipStatus = pgEnum("membership_status", [
+  "active",
+  "suspended",
+  "revoked",
+]);
 export const invitationStatus = pgEnum("invitation_status", [
   "pending",
   "accepted",
   "revoked",
   "expired",
 ]);
-export const listingInputKind = pgEnum("listing_input_kind", ["registration", "model"]);
+export const listingInputKind = pgEnum("listing_input_kind", [
+  "registration",
+  "model",
+]);
 export const listingStatus = pgEnum("listing_status", [
   "draft",
   "active",
@@ -41,59 +53,95 @@ export const plateRedactionStatus = pgEnum("plate_redaction_status", [
   "REVIEW_REQUIRED",
   "FAILED",
 ]);
-export const bidStatus = pgEnum("bid_status", ["active", "withdrawn", "accepted", "lost"]);
-export const accountApplicationStatus = pgEnum("account_application_status", ["pending", "approved", "rejected"]);
-export const questionStatus = pgEnum("listing_question_status", ["published", "hidden", "removed"]);
-
-export const accountApplication = pgTable("account_applications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  firstName: varchar("first_name", { length: 100 }).notNull(),
-  lastName: varchar("last_name", { length: 100 }).notNull(),
-  companyName: varchar("company_name", { length: 200 }).notNull(),
-  organizationNumber: varchar("organization_number", { length: 20 }).notNull(),
-  phone: varchar("phone", { length: 40 }).notNull(),
-  email: varchar("email", { length: 320 }).notNull(),
-  status: accountApplicationStatus("status").notNull().default("pending"),
-  reviewedByUserId: text("reviewed_by_user_id").references(() => user.id, { onDelete: "restrict" }),
-  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [
-  index("account_applications_status_created_idx").on(table.status, table.createdAt),
-  uniqueIndex("account_applications_one_pending_email_uq")
-    .on(sql`lower(${table.email})`)
-    .where(sql`${table.status} = 'pending'`),
+export const bidStatus = pgEnum("bid_status", [
+  "active",
+  "withdrawn",
+  "accepted",
+  "lost",
 ]);
+export const accountApplicationStatus = pgEnum("account_application_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+export const questionStatus = pgEnum("listing_question_status", [
+  "published",
+  "hidden",
+  "removed",
+]);
+
+export const accountApplication = pgTable(
+  "account_applications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    firstName: varchar("first_name", { length: 100 }).notNull(),
+    lastName: varchar("last_name", { length: 100 }).notNull(),
+    companyName: varchar("company_name", { length: 200 }).notNull(),
+    organizationNumber: varchar("organization_number", {
+      length: 20,
+    }).notNull(),
+    phone: varchar("phone", { length: 40 }).notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    status: accountApplicationStatus("status").notNull().default("pending"),
+    reviewedByUserId: text("reviewed_by_user_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("account_applications_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    uniqueIndex("account_applications_one_pending_email_uq")
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+);
 
 export const company = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
   legalName: varchar("legal_name", { length: 200 }).notNull(),
-  organizationNumber: varchar("organization_number", { length: 20 }).notNull().unique(),
+  organizationNumber: varchar("organization_number", { length: 20 })
+    .notNull()
+    .unique(),
   contactEmail: varchar("contact_email", { length: 320 }).notNull(),
   contactPhone: varchar("contact_phone", { length: 40 }),
   kind: companyKind("kind").notNull().default("dealer"),
   status: companyStatus("status").notNull().default("active"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
 
-export const privateRegistration = pgTable("private_registrations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: varchar("email", { length: 320 }).notNull(),
-  name: varchar("name", { length: 200 }).notNull(),
-  phone: varchar("phone", { length: 40 }).notNull(),
-  passwordHash: text("password_hash").notNull(),
-  tokenHash: text("token_hash").notNull().unique(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  consumedAt: timestamp("consumed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [
-  uniqueIndex("private_registrations_pending_email_uq")
-    .on(sql`lower(${table.email})`)
-    .where(sql`${table.consumedAt} IS NULL`),
-]);
+export const privateRegistration = pgTable(
+  "private_registrations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: varchar("email", { length: 320 }).notNull(),
+    name: varchar("name", { length: 200 }).notNull(),
+    phone: varchar("phone", { length: 40 }).notNull(),
+    passwordHash: text("password_hash").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("private_registrations_pending_email_uq")
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.consumedAt} IS NULL`),
+  ],
+);
 
 export const companyMembership = pgTable(
   "company_memberships",
@@ -107,14 +155,19 @@ export const companyMembership = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     role: membershipRole("role").notNull(),
     status: membershipStatus("status").notNull().default("active"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("company_memberships_company_user_uq").on(table.companyId, table.userId),
+    uniqueIndex("company_memberships_company_user_uq").on(
+      table.companyId,
+      table.userId,
+    ),
     index("company_memberships_user_idx").on(table.userId),
   ],
 );
@@ -124,7 +177,9 @@ export const platformAdmin = pgTable("platform_admins", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export const companyInvitation = pgTable(
@@ -138,15 +193,21 @@ export const companyInvitation = pgTable(
     role: membershipRole("role").notNull(),
     tokenHash: text("token_hash").notNull().unique(),
     status: invitationStatus("status").notNull().default("pending"),
-    invitedByUserId: text("invited_by_user_id")
-      .references(() => user.id, { onDelete: "restrict" }),
+    invitedByUserId: text("invited_by_user_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    index("company_invitations_company_email_idx").on(table.companyId, table.email),
+    index("company_invitations_company_email_idx").on(
+      table.companyId,
+      table.email,
+    ),
     uniqueIndex("company_invitations_one_pending_email_uq")
       .on(table.companyId, sql`lower(${table.email})`)
       .where(sql`${table.status} = 'pending'`),
@@ -172,30 +233,46 @@ export const vehicleListing = pgTable(
     deductibleVat: boolean("deductible_vat").notNull(),
     status: listingStatus("status").notNull().default("draft"),
     version: integer("version").notNull().default(1),
-    publicationDurationHours: integer("publication_duration_hours").notNull().default(48),
+    publicationDurationHours: integer("publication_duration_hours")
+      .notNull()
+      .default(48),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("vehicle_listings_id_seller_uq").on(table.id, table.sellerCompanyId),
-    index("vehicle_listings_seller_status_idx").on(table.sellerCompanyId, table.status),
+    uniqueIndex("vehicle_listings_id_seller_uq").on(
+      table.id,
+      table.sellerCompanyId,
+    ),
+    index("vehicle_listings_seller_status_idx").on(
+      table.sellerCompanyId,
+      table.status,
+    ),
     check("vehicle_listings_mileage_nonnegative", sql`${table.mileageKm} >= 0`),
     check(
       "vehicle_listings_mileage_whole_mil",
       sql`${table.mileageKm} <= 2000000 AND ${table.mileageKm} % 10 = 0`,
     ),
     check("vehicle_listings_version_positive", sql`${table.version} > 0`),
-    check("vehicle_listings_publication_duration_range", sql`${table.publicationDurationHours} BETWEEN 48 AND 120`),
+    check(
+      "vehicle_listings_publication_duration_range",
+      sql`${table.publicationDurationHours} BETWEEN 48 AND 120`,
+    ),
     check(
       "vehicle_listings_expiry_after_publication",
       sql`${table.expiresAt} IS NULL OR (${table.publishedAt} IS NOT NULL AND ${table.expiresAt} > ${table.publishedAt})`,
     ),
-    check("vehicle_listings_model_year_range", sql`${table.modelYear} IS NULL OR ${table.modelYear} BETWEEN 1950 AND 3000`),
+    check(
+      "vehicle_listings_model_year_range",
+      sql`${table.modelYear} IS NULL OR ${table.modelYear} BETWEEN 1950 AND 3000`,
+    ),
     check(
       "vehicle_listings_identifier_matches_kind",
       sql`(${table.inputKind} = 'registration' AND ${table.registrationNumber} IS NOT NULL AND ${table.vehicleModel} IS NULL) OR (${table.inputKind} = 'model' AND ${table.vehicleModel} IS NOT NULL AND ${table.registrationNumber} IS NULL)`,
@@ -215,19 +292,32 @@ export const vehicleImage = pgTable(
     mimeType: varchar("mime_type", { length: 100 }).notNull(),
     byteSize: integer("byte_size").notNull(),
     checksumSha256: varchar("checksum_sha256", { length: 64 }).notNull(),
-    sourceChecksumSha256: varchar("source_checksum_sha256", { length: 64 }).notNull(),
+    sourceChecksumSha256: varchar("source_checksum_sha256", {
+      length: 64,
+    }).notNull(),
     plateRedactionStatus: plateRedactionStatus("plate_redaction_status")
       .notNull()
       .default("NOT_CHECKED"),
     plateConfidence: integer("plate_confidence"),
     plateProcessedAt: timestamp("plate_processed_at", { withTimezone: true }),
     plateProcessingError: varchar("plate_processing_error", { length: 120 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("vehicle_images_listing_position_uq").on(table.listingId, table.position),
-    check("vehicle_images_position_range", sql`${table.position} BETWEEN 1 AND 5`),
-    check("vehicle_images_plate_confidence_range", sql`${table.plateConfidence} IS NULL OR ${table.plateConfidence} BETWEEN 0 AND 1000`),
+    uniqueIndex("vehicle_images_listing_position_uq").on(
+      table.listingId,
+      table.position,
+    ),
+    check(
+      "vehicle_images_position_range",
+      sql`${table.position} BETWEEN 1 AND 5`,
+    ),
+    check(
+      "vehicle_images_plate_confidence_range",
+      sql`${table.plateConfidence} IS NULL OR ${table.plateConfidence} BETWEEN 0 AND 1000`,
+    ),
     check("vehicle_images_byte_size_positive", sql`${table.byteSize} > 0`),
   ],
 );
@@ -248,7 +338,9 @@ export const bid = pgTable(
     amountOre: integer("amount_ore").notNull(),
     status: bidStatus("status").notNull().default("active"),
     version: integer("version").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -260,8 +352,14 @@ export const bid = pgTable(
       foreignColumns: [vehicleListing.id, vehicleListing.sellerCompanyId],
       name: "bids_listing_and_seller_fk",
     }).onDelete("restrict"),
-    uniqueIndex("bids_listing_bidder_uq").on(table.listingId, table.bidderCompanyId),
-    uniqueIndex("bids_listing_alias_uq").on(table.listingId, table.anonymousNumber),
+    uniqueIndex("bids_listing_bidder_uq").on(
+      table.listingId,
+      table.bidderCompanyId,
+    ),
+    uniqueIndex("bids_listing_alias_uq").on(
+      table.listingId,
+      table.anonymousNumber,
+    ),
     uniqueIndex("bids_match_reference_uq").on(
       table.id,
       table.listingId,
@@ -271,7 +369,10 @@ export const bid = pgTable(
     uniqueIndex("bids_one_accepted_per_listing_uq")
       .on(table.listingId)
       .where(sql`${table.status} = 'accepted'`),
-    check("bids_no_self_bid", sql`${table.listingSellerCompanyId} <> ${table.bidderCompanyId}`),
+    check(
+      "bids_no_self_bid",
+      sql`${table.listingSellerCompanyId} <> ${table.bidderCompanyId}`,
+    ),
     check("bids_amount_positive", sql`${table.amountOre} > 0`),
     check("bids_alias_positive", sql`${table.anonymousNumber} > 0`),
     check("bids_version_positive", sql`${table.version} > 0`),
@@ -302,13 +403,22 @@ export const match = pgTable(
     vehicleAmountOre: integer("vehicle_amount_ore").notNull(),
     sellerFeeExVatOre: integer("seller_fee_ex_vat_ore").notNull(),
     buyerFeeExVatOre: integer("buyer_fee_ex_vat_ore").notNull(),
-    commercialTermsVersion: varchar("commercial_terms_version", { length: 80 }).notNull(),
+    commercialTermsVersion: varchar("commercial_terms_version", {
+      length: 80,
+    }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull().default("SEK"),
-    acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     foreignKey({
-      columns: [table.acceptedBidId, table.listingId, table.sellerCompanyId, table.buyerCompanyId],
+      columns: [
+        table.acceptedBidId,
+        table.listingId,
+        table.sellerCompanyId,
+        table.buyerCompanyId,
+      ],
       foreignColumns: [
         bid.id,
         bid.listingId,
@@ -317,9 +427,18 @@ export const match = pgTable(
       ],
       name: "matches_bid_and_parties_fk",
     }).onDelete("restrict"),
-    check("matches_distinct_parties", sql`${table.sellerCompanyId} <> ${table.buyerCompanyId}`),
-    check("matches_vehicle_amount_positive", sql`${table.vehicleAmountOre} > 0`),
-    check("matches_seller_fee_nonnegative", sql`${table.sellerFeeExVatOre} >= 0`),
+    check(
+      "matches_distinct_parties",
+      sql`${table.sellerCompanyId} <> ${table.buyerCompanyId}`,
+    ),
+    check(
+      "matches_vehicle_amount_positive",
+      sql`${table.vehicleAmountOre} > 0`,
+    ),
+    check(
+      "matches_seller_fee_nonnegative",
+      sql`${table.sellerFeeExVatOre} >= 0`,
+    ),
     check("matches_buyer_fee_nonnegative", sql`${table.buyerFeeExVatOre} >= 0`),
     check("matches_currency_sek", sql`${table.currency} = 'SEK'`),
     index("matches_seller_idx").on(table.sellerCompanyId),
@@ -327,46 +446,101 @@ export const match = pgTable(
   ],
 );
 
-export const listingParticipantAlias = pgTable("listing_participant_aliases", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  listingId: uuid("listing_id").notNull().references(() => vehicleListing.id, { onDelete: "cascade" }),
-  companyId: uuid("company_id").notNull().references(() => company.id, { onDelete: "restrict" }),
-  anonymousNumber: integer("anonymous_number").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [
-  uniqueIndex("listing_participant_alias_company_uq").on(table.listingId, table.companyId),
-  uniqueIndex("listing_participant_alias_number_uq").on(table.listingId, table.anonymousNumber),
-  check("listing_participant_alias_number_positive", sql`${table.anonymousNumber} > 0`),
-]);
+export const listingParticipantAlias = pgTable(
+  "listing_participant_aliases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => vehicleListing.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "restrict" }),
+    anonymousNumber: integer("anonymous_number").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("listing_participant_alias_company_uq").on(
+      table.listingId,
+      table.companyId,
+    ),
+    uniqueIndex("listing_participant_alias_number_uq").on(
+      table.listingId,
+      table.anonymousNumber,
+    ),
+    check(
+      "listing_participant_alias_number_positive",
+      sql`${table.anonymousNumber} > 0`,
+    ),
+  ],
+);
 
-export const listingQuestion = pgTable("listing_questions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  listingId: uuid("listing_id").notNull().references(() => vehicleListing.id, { onDelete: "cascade" }),
-  authorCompanyId: uuid("author_company_id").notNull().references(() => company.id, { onDelete: "restrict" }),
-  authorUserId: text("author_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
-  body: varchar("body", { length: 1000 }).notNull(),
-  status: questionStatus("status").notNull().default("published"),
-  moderationReason: varchar("moderation_reason", { length: 200 }),
-  answerBody: varchar("answer_body", { length: 1000 }),
-  answeredByUserId: text("answered_by_user_id").references(() => user.id, { onDelete: "restrict" }),
-  answeredAt: timestamp("answered_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (table) => [
-  index("listing_questions_listing_created_idx").on(table.listingId, table.createdAt),
-  check("listing_questions_body_not_blank", sql`length(btrim(${table.body})) > 0`),
-]);
+export const listingQuestion = pgTable(
+  "listing_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => vehicleListing.id, { onDelete: "cascade" }),
+    authorCompanyId: uuid("author_company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "restrict" }),
+    authorUserId: text("author_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    body: varchar("body", { length: 1000 }).notNull(),
+    status: questionStatus("status").notNull().default("published"),
+    moderationReason: varchar("moderation_reason", { length: 200 }),
+    answerBody: varchar("answer_body", { length: 1000 }),
+    answeredByUserId: text("answered_by_user_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("listing_questions_listing_created_idx").on(
+      table.listingId,
+      table.createdAt,
+    ),
+    check(
+      "listing_questions_body_not_blank",
+      sql`length(btrim(${table.body})) > 0`,
+    ),
+  ],
+);
 
-export const notification = pgTable("notifications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  recipientUserId: text("recipient_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  type: varchar("type", { length: 80 }).notNull(),
-  body: varchar("body", { length: 240 }).notNull(),
-  resourceType: varchar("resource_type", { length: 40 }).notNull(),
-  resourceId: text("resource_id").notNull(),
-  readAt: timestamp("read_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index("notifications_recipient_created_idx").on(table.recipientUserId, table.createdAt)]);
+export const notification = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipientUserId: text("recipient_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 80 }).notNull(),
+    body: varchar("body", { length: 240 }).notNull(),
+    resourceType: varchar("resource_type", { length: 40 }).notNull(),
+    resourceId: text("resource_id").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("notifications_recipient_created_idx").on(
+      table.recipientUserId,
+      table.createdAt,
+    ),
+  ],
+);
 
 export const chatThread = pgTable(
   "chat_threads",
@@ -381,7 +555,9 @@ export const chatThread = pgTable(
       .notNull()
       .references(() => company.id, { onDelete: "restrict" }),
     anonymousNumber: integer("anonymous_number").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -393,12 +569,27 @@ export const chatThread = pgTable(
       foreignColumns: [vehicleListing.id, vehicleListing.sellerCompanyId],
       name: "chat_threads_listing_and_seller_fk",
     }).onDelete("restrict"),
-    uniqueIndex("chat_threads_listing_buyer_uq").on(table.listingId, table.buyerCompanyId),
+    uniqueIndex("chat_threads_listing_buyer_uq").on(
+      table.listingId,
+      table.buyerCompanyId,
+    ),
     uniqueIndex("chat_threads_bid_uq").on(table.bidId),
-    uniqueIndex("chat_threads_listing_alias_uq").on(table.listingId, table.anonymousNumber),
-    index("chat_threads_seller_updated_idx").on(table.sellerCompanyId, table.updatedAt),
-    index("chat_threads_buyer_updated_idx").on(table.buyerCompanyId, table.updatedAt),
-    check("chat_threads_distinct_parties", sql`${table.sellerCompanyId} <> ${table.buyerCompanyId}`),
+    uniqueIndex("chat_threads_listing_alias_uq").on(
+      table.listingId,
+      table.anonymousNumber,
+    ),
+    index("chat_threads_seller_updated_idx").on(
+      table.sellerCompanyId,
+      table.updatedAt,
+    ),
+    index("chat_threads_buyer_updated_idx").on(
+      table.buyerCompanyId,
+      table.updatedAt,
+    ),
+    check(
+      "chat_threads_distinct_parties",
+      sql`${table.sellerCompanyId} <> ${table.buyerCompanyId}`,
+    ),
     check("chat_threads_alias_positive", sql`${table.anonymousNumber} > 0`),
   ],
 );
@@ -417,11 +608,21 @@ export const chatMessage = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
     body: varchar("body", { length: 2000 }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    index("chat_messages_thread_created_idx").on(table.threadId, table.createdAt),
-    check("chat_messages_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+    index("chat_messages_thread_created_idx").on(
+      table.threadId,
+      table.createdAt,
+    ),
+    index("chat_messages_thread_read_idx").on(table.threadId, table.readAt),
+    check(
+      "chat_messages_body_not_blank",
+      sql`length(btrim(${table.body})) > 0`,
+    ),
   ],
 );
 
@@ -429,17 +630,29 @@ export const auditLog = pgTable(
   "audit_logs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "restrict" }),
-    actorCompanyId: uuid("actor_company_id").references(() => company.id, { onDelete: "restrict" }),
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
+    actorCompanyId: uuid("actor_company_id").references(() => company.id, {
+      onDelete: "restrict",
+    }),
     action: varchar("action", { length: 120 }).notNull(),
     aggregateType: varchar("aggregate_type", { length: 80 }).notNull(),
     aggregateId: text("aggregate_id").notNull(),
     requestId: varchar("request_id", { length: 120 }),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
-    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    index("audit_logs_aggregate_idx").on(table.aggregateType, table.aggregateId),
+    index("audit_logs_aggregate_idx").on(
+      table.aggregateType,
+      table.aggregateId,
+    ),
     index("audit_logs_actor_company_idx").on(table.actorCompanyId),
     index("audit_logs_occurred_at_idx").on(table.occurredAt),
   ],

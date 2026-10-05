@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/preferences/preferences-provider";
 import { formatDate, formatNotification } from "@/i18n";
 type Item = {
@@ -18,12 +18,24 @@ export function NotificationCenter({
   const { t, locale } = usePreferences();
   const [items, setItems] = useState(initialItems);
   const unread = items.some((item) => !item.readAt);
+  useEffect(() => {
+    const sync = (event: Event) => {
+      const id = (event as CustomEvent<string | undefined>).detail;
+      setItems((current) =>
+        current.map((item) =>
+          !id || item.id === id
+            ? { ...item, readAt: new Date().toISOString() }
+            : item,
+        ),
+      );
+    };
+    window.addEventListener("trejder-notifications-read", sync);
+    return () => window.removeEventListener("trejder-notifications-read", sync);
+  }, []);
   async function markRead() {
     const response = await fetch("/api/notifications", { method: "PATCH" });
     if (response.ok)
-      setItems((current) =>
-        current.map((item) => ({ ...item, readAt: new Date().toISOString() })),
-      );
+      window.dispatchEvent(new CustomEvent("trejder-notifications-read"));
   }
   return (
     <section id="notiser" className="mt-10">

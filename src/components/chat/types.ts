@@ -15,7 +15,11 @@ export type DealerMessage = {
   createdAt: string;
 };
 
-export type DealerThreadDetail = { thread: DealerThread; messages: DealerMessage[] };
+export type DealerThreadDetail = {
+  thread: DealerThread;
+  messages: DealerMessage[];
+  unreadCount: number;
+};
 
 export type PlatformThread = {
   id: string;

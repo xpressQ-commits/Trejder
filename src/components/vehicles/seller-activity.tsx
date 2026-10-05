@@ -136,7 +136,18 @@ export function SellerActivity({ listingId }: { listingId: string }) {
                 </p>
                 {item.status === "active" ? (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" disabled={pending === item.id} onClick={() => void accept(item)} className={primaryButtonClassName}>Acceptera bud</button>
+                    <button
+                      type="button"
+                      disabled={pending === item.id}
+                      onClick={() => void accept(item)}
+                      className={primaryButtonClassName}
+                    >
+                      Acceptera bud
+                    </button>
+                  </div>
+                ) : null}
+                {item.status === "accepted" ? (
+                  <div className="mt-3">
                     <StartChatButton bidId={item.id} canStart />
                   </div>
                 ) : null}

@@ -29,7 +29,10 @@ export function MarketplaceInteractions({
   const { t, locale } = usePreferences();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [ownBid, setOwnBid] = useState<Bid | null>(null);
-  const [message, setMessage] = useState<{ type: "error" | "success"; text: string }>();
+  const [message, setMessage] = useState<{
+    type: "error" | "success";
+    text: string;
+  }>();
   const [pending, setPending] = useState(false);
   const load = useCallback(async () => {
     const [q, b] = await Promise.all([
@@ -66,7 +69,10 @@ export function MarketplaceInteractions({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amountOre }),
     });
-    setMessage({ type: response.ok ? "success" : "error", text: response.ok ? t("bids.saved") : t("bids.error") });
+    setMessage({
+      type: response.ok ? "success" : "error",
+      text: response.ok ? t("bids.saved") : t("bids.error"),
+    });
     await load();
     setPending(false);
   }
@@ -81,7 +87,10 @@ export function MarketplaceInteractions({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: data.get("body") }),
     });
-    setMessage({ type: response.ok ? "success" : "error", text: response.ok ? t("questions.saved") : t("questions.error") });
+    setMessage({
+      type: response.ok ? "success" : "error",
+      text: response.ok ? t("questions.saved") : t("questions.error"),
+    });
     if (response.ok) form.reset();
     await load();
     setPending(false);
@@ -89,9 +98,7 @@ export function MarketplaceInteractions({
   return (
     <div className="mt-9 space-y-8 border-t border-[var(--border)] pt-8">
       {message ? (
-        <FormMessage type={message.type}>
-          {message.text}
-        </FormMessage>
+        <FormMessage type={message.type}>{message.text}</FormMessage>
       ) : null}
       {canBid ? (
         <section>
@@ -119,7 +126,7 @@ export function MarketplaceInteractions({
               {ownBid ? t("bids.update") : t("bids.place")}
             </button>
           </form>
-          {ownBid?.status === "active" || ownBid?.status === "accepted" ? (
+          {ownBid?.status === "accepted" ? (
             <div className="mt-4">
               <StartChatButton bidId={ownBid.id} canStart />
             </div>
@@ -141,7 +148,9 @@ export function MarketplaceInteractions({
               <p className="mt-1">{question.body}</p>
               {question.answerBody ? (
                 <div className="mt-3 border-l-2 border-[var(--primary)] pl-3">
-                  <p className="text-sm font-semibold">{t("questions.seller")}</p>
+                  <p className="text-sm font-semibold">
+                    {t("questions.seller")}
+                  </p>
                   <p>{question.answerBody}</p>
                 </div>
               ) : (
