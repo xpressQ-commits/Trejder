@@ -48,6 +48,8 @@ describe("NotificationBell", () => {
     expect(dialog.className).toContain("fixed");
     expect(dialog.className).toContain("right-4");
     expect(dialog.className).toContain("left-4");
+    expect(dialog.className).toContain("lg:left-0");
+    expect(dialog.className).toContain("lg:right-auto");
     expect(dialog.className).toContain("max-h-[min(70vh,37.5rem)]");
     expect(dialog.className).toContain("z-50");
     expect(dialog.querySelector("ul")?.className).toContain("overflow-y-auto");

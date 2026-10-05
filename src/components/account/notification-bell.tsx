@@ -140,7 +140,7 @@ export function NotificationBell({
         <div
           role="dialog"
           aria-label="Notiser"
-          className="fixed top-20 right-4 left-4 z-50 flex max-h-[min(70vh,37.5rem)] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-xl lg:absolute lg:top-auto lg:right-0 lg:bottom-full lg:left-auto lg:mb-2 lg:w-[min(22rem,calc(100vw-2rem))]"
+          className="fixed top-20 right-4 left-4 z-50 flex max-h-[min(70vh,37.5rem)] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-xl lg:absolute lg:top-auto lg:right-auto lg:bottom-full lg:left-0 lg:mb-2 lg:w-[min(22rem,calc(100vw-2rem))]"
         >
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <strong>Notiser</strong>
