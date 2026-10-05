@@ -56,6 +56,8 @@ Public Q&A never creates private-message authority. A private thread requires a 
 
 The match is the authoritative Deal record and is created in the same transaction as bid acceptance. Its unique listing and accepted-bid constraints prevent duplicate deals. A single chat thread is created for the accepted bid; older matches without a thread are handled by the same idempotent create-or-get path when their deal detail is opened.
 
+Company contact email and phone are managed by company ADMIN users. They remain excluded from marketplace and bid projections and are disclosed only to the matched counterparty after acceptance.
+
 Bid:
 
 - create as `active` only on another company's active listing.
