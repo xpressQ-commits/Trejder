@@ -17,6 +17,7 @@ import {
   vehicleListing,
 } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
+import { notificationUrl, sendPushToUsers } from "@/server/push-notifications";
 
 const seller = alias(company, "chat_seller");
 const buyer = alias(company, "chat_buyer");
@@ -302,6 +303,7 @@ export async function sendChatMessage(input: {
   }
   if (containsContactInformation(body) && !identityRevealed(participantThread))
     throw new AccessError(400, "CONTACT_INFORMATION_NOT_ALLOWED");
+  let pushRecipients: string[] = [];
   await getDb().transaction(async (tx) => {
     const [created] = await tx
       .insert(chatMessage)
@@ -337,6 +339,7 @@ export async function sendChatMessage(input: {
           eq(companyMembership.status, "active"),
         ),
       );
+    pushRecipients = recipients.map(({ userId }) => userId);
     if (recipients.length)
       await tx.insert(notification).values(
         recipients.map(({ userId }) => ({
@@ -347,6 +350,16 @@ export async function sendChatMessage(input: {
           resourceId: participantThread.matchId,
         })),
       );
+  });
+  await sendPushToUsers(pushRecipients, {
+    title: "Nytt meddelande på Trejder",
+    body: "Du har fått ett nytt meddelande.",
+    url: notificationUrl({
+      type: "chat.message",
+      resourceType: "match",
+      resourceId: participantThread.matchId,
+    }),
+    tag: `chat-${participantThread.matchId}`,
   });
   return getDealerChatThread(input.companyId, input.threadId);
 }

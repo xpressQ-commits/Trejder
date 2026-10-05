@@ -10,6 +10,8 @@ import { defaultTheme, isThemePreference, themeCookie } from "@/theme/config";
 export const metadata: Metadata = {
   title: "Trejder",
   description: "En enkel marknadsplats för bilhandlare.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Trejder", statusBarStyle: "default" },
   icons: {
     icon: [
       {

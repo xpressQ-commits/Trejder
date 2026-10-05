@@ -12,6 +12,7 @@ import {
   vehicleListing,
 } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
+import { notificationUrl, sendPushToUsers } from "@/server/push-notifications";
 
 function dealerLabel(number: number) {
   return `Handlare ${String.fromCharCode(64 + Math.min(number, 26))}`;
@@ -37,14 +38,13 @@ async function notifyCompanyMembers(
       ),
     );
   if (recipients.length)
-    await tx
-      .insert(notification)
-      .values(
-        recipients.map(({ userId }) => ({
-          recipientUserId: userId,
-          ...values,
-        })),
-      );
+    await tx.insert(notification).values(
+      recipients.map(({ userId }) => ({
+        recipientUserId: userId,
+        ...values,
+      })),
+    );
+  return recipients.map(({ userId }) => userId);
 }
 
 export async function placeBid(input: {
@@ -55,7 +55,8 @@ export async function placeBid(input: {
 }) {
   if (!Number.isSafeInteger(input.amountOre) || input.amountOre <= 0)
     throw new AccessError(400, "INVALID_BID_AMOUNT");
-  return getDb().transaction(async (tx) => {
+  let pushRecipients: string[] = [];
+  const result = await getDb().transaction(async (tx) => {
     const [listing] = await tx
       .select({
         id: vehicleListing.id,
@@ -131,17 +132,15 @@ export async function placeBid(input: {
             amountOre: input.amountOre,
           })
           .returning();
-    await tx
-      .insert(auditLog)
-      .values({
-        actorUserId: input.actorUserId,
-        actorCompanyId: input.bidderCompanyId,
-        action: existing ? "bid.updated" : "bid.placed",
-        aggregateType: "bid",
-        aggregateId: saved.id,
-        metadata: { listingId: listing.id, amountOre: input.amountOre },
-      });
-    await notifyCompanyMembers(tx, listing.sellerCompanyId, {
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.bidderCompanyId,
+      action: existing ? "bid.updated" : "bid.placed",
+      aggregateType: "bid",
+      aggregateId: saved.id,
+      metadata: { listingId: listing.id, amountOre: input.amountOre },
+    });
+    pushRecipients = await notifyCompanyMembers(tx, listing.sellerCompanyId, {
       type: "bid.received",
       body: `Nytt bud från ${dealerLabel(saved.anonymousNumber)}`,
       resourceType: "listing",
@@ -154,6 +153,17 @@ export async function placeBid(input: {
       updatedAt: saved.updatedAt,
     };
   });
+  await sendPushToUsers(pushRecipients, {
+    title: "Nytt bud på Trejder",
+    body: "Du har fått ett nytt bud.",
+    url: notificationUrl({
+      type: "bid.received",
+      resourceType: "listing",
+      resourceId: input.listingId,
+    }),
+    tag: `listing-${input.listingId}`,
+  });
+  return result;
 }
 
 export async function getOwnBid(listingId: string, bidderCompanyId: string) {
@@ -225,7 +235,14 @@ export async function acceptBid(input: {
   sellerCompanyId: string;
   actorUserId: string;
 }) {
-  return getDb().transaction(async (tx) => {
+  const pushes: Array<{
+    userIds: string[];
+    body: string;
+    resourceType: string;
+    resourceId: string;
+    type: string;
+  }> = [];
+  const result = await getDb().transaction(async (tx) => {
     const [listing] = await tx
       .select()
       .from(vehicleListing)
@@ -309,29 +326,61 @@ export async function acceptBid(input: {
         anonymousNumber: accepted.anonymousNumber,
       })
       .onConflictDoNothing({ target: chatThread.bidId });
-    await tx
-      .insert(auditLog)
-      .values({
-        actorUserId: input.actorUserId,
-        actorCompanyId: input.sellerCompanyId,
-        action: "bid.accepted",
-        aggregateType: "match",
-        aggregateId: created.id,
-        metadata: { bidId: accepted.id, listingId: listing.id },
-      });
-    await notifyCompanyMembers(tx, accepted.bidderCompanyId, {
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.sellerCompanyId,
+      action: "bid.accepted",
+      aggregateType: "match",
+      aggregateId: created.id,
+      metadata: { bidId: accepted.id, listingId: listing.id },
+    });
+    const acceptedRecipients = await notifyCompanyMembers(
+      tx,
+      accepted.bidderCompanyId,
+      {
+        type: "bid.accepted",
+        body: "Ditt bud har accepterats",
+        resourceType: "match",
+        resourceId: created.id,
+      },
+    );
+    pushes.push({
+      userIds: acceptedRecipients,
+      body: "Ditt bud har accepterats.",
       type: "bid.accepted",
-      body: "Ditt bud har accepterats",
       resourceType: "match",
       resourceId: created.id,
     });
-    for (const losing of losingBids)
-      await notifyCompanyMembers(tx, losing.bidderCompanyId, {
+    for (const losing of losingBids) {
+      const losingRecipients = await notifyCompanyMembers(
+        tx,
+        losing.bidderCompanyId,
+        {
+          type: "bid.lost",
+          body: "Annonsen har sålts till en annan budgivare",
+          resourceType: "listing",
+          resourceId: listing.id,
+        },
+      );
+      pushes.push({
+        userIds: losingRecipients,
+        body: "Annonsen såldes till en annan budgivare.",
         type: "bid.lost",
-        body: "Annonsen har sålts till en annan budgivare",
         resourceType: "listing",
         resourceId: listing.id,
       });
+    }
     return created;
   });
+  await Promise.all(
+    pushes.map((push) =>
+      sendPushToUsers(push.userIds, {
+        title: "Buduppdatering på Trejder",
+        body: push.body,
+        url: notificationUrl(push),
+        tag: `${push.type}-${push.resourceId}`,
+      }),
+    ),
+  );
+  return result;
 }

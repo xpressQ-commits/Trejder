@@ -16,6 +16,14 @@ export type HeaderNotification = {
   createdAt: string;
 };
 
+function applicationServerKey(value: string) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(window.atob(base64), (character) =>
+    character.charCodeAt(0),
+  );
+}
+
 function destination(item: HeaderNotification) {
   if (item.resourceType === "match") return `/app/affarer/${item.resourceId}`;
   if (item.resourceType === "chat_thread")
@@ -40,6 +48,8 @@ export function NotificationBell({
   const [items, setItems] = useState(initialItems);
   const [open, setOpen] = useState(false);
   const [showBrowserPrompt, setShowBrowserPrompt] = useState(false);
+  const [pushMessage, setPushMessage] = useState<string | null>(null);
+  const [enablingPush, setEnablingPush] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const knownIds = useRef(new Set(initialItems.map((item) => item.id)));
   const unread = items.filter((item) => !item.readAt).length;
@@ -73,15 +83,24 @@ export function NotificationBell({
     return () => window.removeEventListener("trejder-notifications-read", sync);
   }, []);
   useEffect(() => {
-    const promptTimer = window.setTimeout(
-      () =>
+    let cancelled = false;
+    const initializePush = async () => {
+      if (
+        !("Notification" in window) ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window)
+      )
+        return;
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const subscription = await registration.pushManager.getSubscription();
+      if (!cancelled)
         setShowBrowserPrompt(
-          "Notification" in window &&
-            Notification.permission === "default" &&
+          !subscription &&
+            Notification.permission !== "denied" &&
             localStorage.getItem("trejder_notification_prompt") !== "dismissed",
-        ),
-      0,
-    );
+        );
+    };
+    void initializePush().catch(() => undefined);
     const timer = window.setInterval(async () => {
       const response = await fetch("/api/notifications", { cache: "no-store" });
       if (!response.ok) return;
@@ -96,7 +115,8 @@ export function NotificationBell({
       if (
         fresh[0] &&
         "Notification" in window &&
-        Notification.permission === "granted"
+        Notification.permission === "granted" &&
+        !("PushManager" in window)
       ) {
         new Notification("Trejder", {
           body: formatNotification(locale, fresh[0].type, fresh[0].body),
@@ -104,10 +124,58 @@ export function NotificationBell({
       }
     }, 30_000);
     return () => {
-      window.clearTimeout(promptTimer);
+      cancelled = true;
       window.clearInterval(timer);
     };
   }, [locale]);
+  async function enablePush() {
+    setEnablingPush(true);
+    setPushMessage(null);
+    try {
+      if (
+        !("Notification" in window) ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window)
+      ) {
+        setPushMessage(
+          "Den här webbläsaren saknar stöd. På iPhone behöver Trejder först läggas till på hemskärmen.",
+        );
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        localStorage.setItem("trejder_notification_prompt", "dismissed");
+        setPushMessage("Notiser är blockerade i webbläsarens inställningar.");
+        return;
+      }
+      const keyResponse = await fetch("/api/push-subscriptions", {
+        cache: "no-store",
+      });
+      if (!keyResponse.ok) throw new Error("PUSH_NOT_CONFIGURED");
+      const { publicKey } = (await keyResponse.json()) as { publicKey: string };
+      const registration = await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      const subscription =
+        existing ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey(publicKey),
+        }));
+      const saved = await fetch("/api/push-subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription.toJSON()),
+      });
+      if (!saved.ok) throw new Error("PUSH_SAVE_FAILED");
+      localStorage.removeItem("trejder_notification_prompt");
+      setShowBrowserPrompt(false);
+      setPushMessage("Mobilnotiser är aktiverade på den här enheten.");
+    } catch {
+      setPushMessage("Notiser kunde inte aktiveras. Försök igen om en stund.");
+    } finally {
+      setEnablingPush(false);
+    }
+  }
   async function mark(id?: string) {
     const response = await fetch("/api/notifications", {
       method: "PATCH",
@@ -198,41 +266,42 @@ export function NotificationBell({
               </li>
             )}
           </ul>
-          {showBrowserPrompt ? (
+          {showBrowserPrompt || pushMessage ? (
             <div className="border-t border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-              <p className="text-sm font-medium">
-                Vill du få aviseringar om nya bud och meddelanden?
-              </p>
-              <div className="mt-3 flex gap-3">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const result = await Notification.requestPermission();
-                    setShowBrowserPrompt(false);
-                    if (result !== "granted")
-                      localStorage.setItem(
-                        "trejder_notification_prompt",
-                        "dismissed",
-                      );
-                  }}
-                  className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-white"
-                >
-                  Aktivera
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.setItem(
-                      "trejder_notification_prompt",
-                      "dismissed",
-                    );
-                    setShowBrowserPrompt(false);
-                  }}
-                  className="px-3 py-2 text-sm font-semibold text-[var(--muted)]"
-                >
-                  Inte nu
-                </button>
-              </div>
+              {pushMessage ? (
+                <p className="text-sm font-medium">{pushMessage}</p>
+              ) : null}
+              {showBrowserPrompt ? (
+                <>
+                  <p className="text-sm font-medium">
+                    Vill du få mobilnotiser om nya bud och meddelanden, även när
+                    Trejder är stängt?
+                  </p>
+                  <div className="mt-3 flex gap-3">
+                    <button
+                      type="button"
+                      disabled={enablingPush}
+                      onClick={() => void enablePush()}
+                      className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {enablingPush ? "Aktiverar…" : "Aktivera"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(
+                          "trejder_notification_prompt",
+                          "dismissed",
+                        );
+                        setShowBrowserPrompt(false);
+                      }}
+                      className="px-3 py-2 text-sm font-semibold text-[var(--muted)]"
+                    >
+                      Inte nu
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>

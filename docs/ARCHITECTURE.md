@@ -16,6 +16,12 @@ Server Components are the default. Client Components are introduced only where b
 
 No microservices, event bus, global client-state framework or broad UI kit is justified at this stage.
 
+Browser notifications use the Web Push standard. An authenticated user explicitly
+subscribes a browser installation; the endpoint and encryption keys are stored per
+user, while VAPID private material remains server-only. The service worker displays
+identity-safe notification text and deep-links back to an authorized application
+route. Expired provider subscriptions are removed after a 404/410 response.
+
 ### Theme and localization
 
 - UI colors use semantic CSS variables from `src/app/globals.css`. New components must not introduce light-only literals for surfaces, text, borders or interaction states.

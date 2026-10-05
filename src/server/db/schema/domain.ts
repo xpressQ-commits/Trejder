@@ -561,6 +561,31 @@ export const notification = pgTable(
   ],
 );
 
+export const pushSubscription = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("push_subscriptions_endpoint_unique").on(table.endpoint),
+    index("push_subscriptions_user_idx").on(table.userId),
+  ],
+);
+
 export const chatThread = pgTable(
   "chat_threads",
   {
