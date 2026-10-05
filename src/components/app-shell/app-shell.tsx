@@ -150,12 +150,11 @@ export function AppShell({
             </ul>
           </nav>
           <div className="mt-8 hidden border-t border-white/15 pt-5 lg:block">
-            <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{userName}</p>
                 <p className="truncate text-sm text-white/60">{companyName}</p>
               </div>
-              <NotificationBell initialItems={initialNotifications} />
             </div>
             <div className="mt-3">
               <LogoutButton compact />
@@ -189,7 +188,13 @@ export function AppShell({
           </ul>
         </nav>
       </aside>
-      <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-10 lg:py-10">
+      <main className="relative min-w-0 px-4 py-7 sm:px-6 lg:px-10 lg:py-10">
+        <div className="absolute top-6 right-6 z-30 hidden lg:right-10 lg:block">
+          <NotificationBell
+            initialItems={initialNotifications}
+            desktopPlacement="header"
+          />
+        </div>
         <div className="mx-auto max-w-5xl">{children}</div>
       </main>
     </div>

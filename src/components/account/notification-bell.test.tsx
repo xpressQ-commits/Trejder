@@ -75,4 +75,16 @@ describe("NotificationBell", () => {
     fireEvent.click(link);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("opens downward when placed in the desktop page header", () => {
+    render(
+      <NotificationBell initialItems={[item]} desktopPlacement="header" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /notiser/i }));
+    const dialog = screen.getByRole("dialog", { name: "Notiser" });
+    expect(dialog.className).toContain("lg:top-full");
+    expect(dialog.className).toContain("lg:right-0");
+    expect(dialog.className).toContain("lg:bottom-auto");
+    expect(dialog.className).toContain("lg:mt-2");
+  });
 });
