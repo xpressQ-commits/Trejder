@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Trejder",
     short_name: "Trejder",
     description: "En enkel marknadsplats för bilhandlare.",
-    start_url: "/app/oversikt",
+    start_url: "/app",
     scope: "/",
     display: "standalone",
     background_color: "#ffffff",

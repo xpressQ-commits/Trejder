@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getCurrentPrivateCustomerContext } from "@/app/app/_lib/current-context";
+import { redirect } from "next/navigation";
+import { getOptionalCurrentCompanyContext } from "@/app/app/_lib/current-context";
 import { listCompanyDeals } from "@/server/deals";
 import { listUserNotifications } from "@/server/notifications";
 import { listOwnListings } from "@/server/vehicles/listings";
@@ -8,7 +9,9 @@ import { countSellerActiveBids } from "@/server/bids";
 import { getTranslations } from "@/i18n/server";
 
 export default async function PrivateDashboardPage() {
-  const context = await getCurrentPrivateCustomerContext();
+  const context = await getOptionalCurrentCompanyContext();
+  if (!context) return null;
+  if (context.membership.role !== "private_customer") redirect("/app/marknad");
   const { t } = await getTranslations();
   const [listings, deals, notifications, activeBids] = await Promise.all([
     listOwnListings(context.company.id),

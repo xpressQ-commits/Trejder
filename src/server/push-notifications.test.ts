@@ -35,5 +35,12 @@ describe("push notifications", () => {
         resourceId: "match-1",
       }),
     ).toBe("/app/affarer/match-1");
+    expect(
+      notificationUrl({
+        type: "unknown",
+        resourceType: "unknown",
+        resourceId: "unknown",
+      }),
+    ).toBe("/app");
   });
 });

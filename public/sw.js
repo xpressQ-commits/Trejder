@@ -29,7 +29,7 @@ self.addEventListener("push", (event) => {
       icon: "/icon.png",
       badge: "/icon.png",
       tag: data.tag || "trejder-notification",
-      data: { url: data.url || "/app/oversikt#notiser" },
+      data: { url: data.url || "/app" },
     }),
   );
 });
@@ -37,7 +37,7 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = new URL(
-    event.notification.data?.url || "/app/oversikt#notiser",
+    event.notification.data?.url || "/app",
     self.location.origin,
   ).href;
   event.waitUntil(

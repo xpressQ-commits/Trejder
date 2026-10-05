@@ -25,7 +25,7 @@ export function notificationUrl(input: {
     return `/app/bilar/${input.resourceId}`;
   if (input.resourceType === "listing")
     return `/app/marknad/${input.resourceId}`;
-  return "/app/oversikt#notiser";
+  return "/app";
 }
 
 function configuration() {
