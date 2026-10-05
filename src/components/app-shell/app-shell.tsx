@@ -117,7 +117,10 @@ export function AppShell({
             </span>
           </Link>
           <div className="flex items-center gap-2 lg:hidden">
-            <NotificationBell initialItems={initialNotifications} />
+            <NotificationBell
+              initialItems={initialNotifications}
+              showPushOnboarding
+            />
             <LogoutButton compact />
           </div>
           <div className="mt-7 hidden lg:block">

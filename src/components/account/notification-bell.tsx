@@ -40,14 +40,17 @@ function destination(item: HeaderNotification) {
 export function NotificationBell({
   initialItems,
   desktopPlacement = "sidebar",
+  showPushOnboarding = false,
 }: {
   initialItems: HeaderNotification[];
   desktopPlacement?: "sidebar" | "header";
+  showPushOnboarding?: boolean;
 }) {
   const { locale } = usePreferences();
   const [items, setItems] = useState(initialItems);
   const [open, setOpen] = useState(false);
   const [showBrowserPrompt, setShowBrowserPrompt] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
   const [enablingPush, setEnablingPush] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -93,12 +96,19 @@ export function NotificationBell({
         return;
       const registration = await navigator.serviceWorker.register("/sw.js");
       const subscription = await registration.pushManager.getSubscription();
-      if (!cancelled)
+      const standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        ("standalone" in navigator &&
+          (navigator as Navigator & { standalone?: boolean }).standalone ===
+            true);
+      if (!cancelled) {
+        setIsStandalone(standalone);
         setShowBrowserPrompt(
           !subscription &&
             Notification.permission !== "denied" &&
-            localStorage.getItem("trejder_notification_prompt") !== "dismissed",
+            localStorage.getItem("trejder_push_onboarding_v2") !== "dismissed",
         );
+      }
     };
     void initializePush().catch(() => undefined);
     const timer = window.setInterval(async () => {
@@ -144,7 +154,7 @@ export function NotificationBell({
       }
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        localStorage.setItem("trejder_notification_prompt", "dismissed");
+        localStorage.setItem("trejder_push_onboarding_v2", "dismissed");
         setPushMessage("Notiser är blockerade i webbläsarens inställningar.");
         return;
       }
@@ -167,7 +177,7 @@ export function NotificationBell({
         body: JSON.stringify(subscription.toJSON()),
       });
       if (!saved.ok) throw new Error("PUSH_SAVE_FAILED");
-      localStorage.removeItem("trejder_notification_prompt");
+      localStorage.removeItem("trejder_push_onboarding_v2");
       setShowBrowserPrompt(false);
       setPushMessage("Mobilnotiser är aktiverade på den här enheten.");
     } catch {
@@ -290,7 +300,7 @@ export function NotificationBell({
                       type="button"
                       onClick={() => {
                         localStorage.setItem(
-                          "trejder_notification_prompt",
+                          "trejder_push_onboarding_v2",
                           "dismissed",
                         );
                         setShowBrowserPrompt(false);
@@ -304,6 +314,53 @@ export function NotificationBell({
               ) : null}
             </div>
           ) : null}
+        </div>
+      ) : null}
+      {showPushOnboarding && isStandalone && showBrowserPrompt ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="push-onboarding-title"
+          className="fixed inset-0 z-[70] flex items-end bg-black/55 p-4 sm:items-center sm:justify-center"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 text-[var(--foreground)] shadow-2xl">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-selected)] text-[var(--primary)]">
+              <Bell aria-hidden="true" size={22} />
+            </div>
+            <h2 id="push-onboarding-title" className="mt-4 text-xl font-bold">
+              Aktivera mobilnotiser
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Få besked direkt om nya bud, frågor och meddelanden – även när
+              Trejder inte är öppet.
+            </p>
+            {pushMessage ? (
+              <p className="mt-3 text-sm font-medium">{pushMessage}</p>
+            ) : null}
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                disabled={enablingPush}
+                onClick={() => void enablePush()}
+                className="min-h-11 flex-1 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {enablingPush ? "Aktiverar…" : "Aktivera notiser"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem(
+                    "trejder_push_onboarding_v2",
+                    "dismissed",
+                  );
+                  setShowBrowserPrompt(false);
+                }}
+                className="min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-[var(--muted)]"
+              >
+                Inte nu
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
