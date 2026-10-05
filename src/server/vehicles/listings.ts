@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { Role } from "@/domain/authorization";
+import { normalizeEquipment, type EquipmentKey } from "@/domain/equipment";
 import {
   canEditActiveListingFields,
   MAX_LISTING_COMMENT_LENGTH,
@@ -11,7 +12,10 @@ import {
 import { getDb } from "@/server/db";
 import { auditLog, vehicleImage, vehicleListing } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
-import { redactVehicleImage, type PlateRedactionStatus } from "@/server/vehicles/plate-redaction";
+import {
+  redactVehicleImage,
+  type PlateRedactionStatus,
+} from "@/server/vehicles/plate-redaction";
 import {
   createPrivateObjectKey,
   getImageStorage,
@@ -27,6 +31,8 @@ export type OwnListingDto = {
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  equipment: EquipmentKey[];
+  otherEquipment: string | null;
   deductibleVat: boolean;
   status: ListingStatus;
   publicationHours: number;
@@ -49,6 +55,8 @@ export type ListingInput = {
   modelYear: number;
   mileageMil: number;
   shortComment: string;
+  equipment?: EquipmentKey[];
+  otherEquipment?: string | null;
   deductibleVat: boolean;
   publicationHours?: number;
 };
@@ -59,6 +67,15 @@ function normalizeComment(value: string): string {
     throw new AccessError(400, "INVALID_COMMENT");
   }
   return comment;
+}
+
+function normalizeOtherEquipment(
+  value: string | null | undefined,
+): string | null {
+  const normalized = value?.trim().replace(/\s+/g, " ") ?? "";
+  if (normalized.length > 500)
+    throw new AccessError(400, "INVALID_OTHER_EQUIPMENT");
+  return normalized || null;
 }
 
 function normalizedListingValues(input: ListingInput) {
@@ -81,12 +98,18 @@ function normalizedListingValues(input: ListingInput) {
     modelYear,
     mileageKm,
     shortComment: normalizeComment(input.shortComment),
+    equipment: normalizeEquipment(input.equipment ?? []),
+    otherEquipment: normalizeOtherEquipment(input.otherEquipment),
     deductibleVat: input.deductibleVat,
     publicationDurationHours: input.publicationHours ?? 48,
   } as const;
 }
 
-function rowIdentifier(row: { inputKind: "registration" | "model"; registrationNumber: string | null; vehicleModel: string | null }): VehicleIdentifier {
+function rowIdentifier(row: {
+  inputKind: "registration" | "model";
+  registrationNumber: string | null;
+  vehicleModel: string | null;
+}): VehicleIdentifier {
   if (row.inputKind === "registration" && row.registrationNumber) {
     return { kind: "registration", value: row.registrationNumber };
   }
@@ -109,6 +132,8 @@ function toDto(
     mileageMil: row.mileageKm / 10,
     modelYear: row.modelYear,
     shortComment: row.shortComment,
+    equipment: normalizeEquipment(row.equipment),
+    otherEquipment: row.otherEquipment,
     deductibleVat: row.deductibleVat,
     status: row.status,
     publicationHours: row.publicationDurationHours,
@@ -121,7 +146,8 @@ function toDto(
       mimeType: image.mimeType,
       byteSize: image.byteSize,
       plateRedactionStatus: image.plateRedactionStatus,
-      plateConfidence: image.plateConfidence === null ? null : image.plateConfidence / 1000,
+      plateConfidence:
+        image.plateConfidence === null ? null : image.plateConfidence / 1000,
       url: `/api/company/listings/${row.id}/images/${image.position}`,
     })),
   };
@@ -132,29 +158,56 @@ export async function listOwnListings(
   status?: "draft" | "active" | "withdrawn",
 ): Promise<OwnListingDto[]> {
   const db = getDb();
-  const listings = await db.select().from(vehicleListing)
-    .where(status
-      ? and(eq(vehicleListing.sellerCompanyId, companyId), eq(vehicleListing.status, status))
-      : eq(vehicleListing.sellerCompanyId, companyId))
+  const listings = await db
+    .select()
+    .from(vehicleListing)
+    .where(
+      status
+        ? and(
+            eq(vehicleListing.sellerCompanyId, companyId),
+            eq(vehicleListing.status, status),
+          )
+        : eq(vehicleListing.sellerCompanyId, companyId),
+    )
     .orderBy(desc(vehicleListing.createdAt));
   if (listings.length === 0) return [];
-  const images = await db.select().from(vehicleImage)
-    .where(inArray(vehicleImage.listingId, listings.map((listing) => listing.id)))
+  const images = await db
+    .select()
+    .from(vehicleImage)
+    .where(
+      inArray(
+        vehicleImage.listingId,
+        listings.map((listing) => listing.id),
+      ),
+    )
     .orderBy(asc(vehicleImage.position));
-  return listings.map((listing) => toDto(
-    listing,
-    images.filter((image) => image.listingId === listing.id),
-  ));
+  return listings.map((listing) =>
+    toDto(
+      listing,
+      images.filter((image) => image.listingId === listing.id),
+    ),
+  );
 }
 
-export async function getOwnListing(companyId: string, listingId: string): Promise<OwnListingDto> {
+export async function getOwnListing(
+  companyId: string,
+  listingId: string,
+): Promise<OwnListingDto> {
   const db = getDb();
-  const [listing] = await db.select().from(vehicleListing).where(and(
-    eq(vehicleListing.id, listingId),
-    eq(vehicleListing.sellerCompanyId, companyId),
-  )).limit(1);
+  const [listing] = await db
+    .select()
+    .from(vehicleListing)
+    .where(
+      and(
+        eq(vehicleListing.id, listingId),
+        eq(vehicleListing.sellerCompanyId, companyId),
+      ),
+    )
+    .limit(1);
   if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
-  const images = await db.select().from(vehicleImage)
+  const images = await db
+    .select()
+    .from(vehicleImage)
     .where(eq(vehicleImage.listingId, listing.id))
     .orderBy(asc(vehicleImage.position));
   return toDto(listing, images);
@@ -167,12 +220,15 @@ export async function createDraft(input: {
 }): Promise<OwnListingDto> {
   const values = normalizedListingValues(input.values);
   const [created] = await getDb().transaction(async (tx) => {
-    const rows = await tx.insert(vehicleListing).values({
-      sellerCompanyId: input.companyId,
-      createdByUserId: input.actorUserId,
-      ...values,
-      status: "draft",
-    }).returning();
+    const rows = await tx
+      .insert(vehicleListing)
+      .values({
+        sellerCompanyId: input.companyId,
+        createdByUserId: input.actorUserId,
+        ...values,
+        status: "draft",
+      })
+      .returning();
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
       actorCompanyId: input.companyId,
@@ -193,18 +249,28 @@ export async function updateOwnListing(input: {
   values: Partial<ListingInput>;
 }): Promise<OwnListingDto> {
   await getDb().transaction(async (tx) => {
-    const [listing] = await tx.select().from(vehicleListing).where(and(
-      eq(vehicleListing.id, input.listingId),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-    )).for("update");
+    const [listing] = await tx
+      .select()
+      .from(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, input.listingId),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      )
+      .for("update");
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
     if (listing.status === "withdrawn" || listing.status === "matched") {
       throw new AccessError(409, "LISTING_NOT_EDITABLE");
     }
 
     const changedKeys = Object.keys(input.values);
-    if (changedKeys.length === 0) throw new AccessError(400, "NO_LISTING_CHANGES");
-    if (listing.status === "active" && !canEditActiveListingFields(changedKeys)) {
+    if (changedKeys.length === 0)
+      throw new AccessError(400, "NO_LISTING_CHANGES");
+    if (
+      listing.status === "active" &&
+      !canEditActiveListingFields(changedKeys)
+    ) {
       throw new AccessError(409, "ACTIVE_LISTING_FIELDS_LOCKED");
     }
 
@@ -215,28 +281,49 @@ export async function updateOwnListing(input: {
         const normalized = normalizeIdentifier(input.values.identifier);
         if (normalized.kind !== "model") throw new Error("INVALID_IDENTIFIER");
         identifier = normalized;
+      } catch {
+        throw new AccessError(400, "INVALID_IDENTIFIER");
       }
-      catch { throw new AccessError(400, "INVALID_IDENTIFIER"); }
       update.inputKind = "model";
       update.registrationNumber = null;
       update.vehicleModel = identifier.value;
     }
     if (input.values.mileageMil !== undefined) {
-      try { update.mileageKm = normalizeMileageMil(input.values.mileageMil); }
-      catch { throw new AccessError(400, "INVALID_MILEAGE"); }
+      try {
+        update.mileageKm = normalizeMileageMil(input.values.mileageMil);
+      } catch {
+        throw new AccessError(400, "INVALID_MILEAGE");
+      }
     }
     if (input.values.modelYear !== undefined) {
-      try { update.modelYear = normalizeModelYear(input.values.modelYear); }
-      catch { throw new AccessError(400, "INVALID_MODEL_YEAR"); }
+      try {
+        update.modelYear = normalizeModelYear(input.values.modelYear);
+      } catch {
+        throw new AccessError(400, "INVALID_MODEL_YEAR");
+      }
     }
-    if (input.values.shortComment !== undefined) update.shortComment = normalizeComment(input.values.shortComment);
-    if (input.values.deductibleVat !== undefined) update.deductibleVat = input.values.deductibleVat;
-    if (input.values.publicationHours !== undefined) update.publicationDurationHours = input.values.publicationHours;
+    if (input.values.shortComment !== undefined)
+      update.shortComment = normalizeComment(input.values.shortComment);
+    if (input.values.equipment !== undefined)
+      update.equipment = normalizeEquipment(input.values.equipment);
+    if (input.values.otherEquipment !== undefined)
+      update.otherEquipment = normalizeOtherEquipment(
+        input.values.otherEquipment,
+      );
+    if (input.values.deductibleVat !== undefined)
+      update.deductibleVat = input.values.deductibleVat;
+    if (input.values.publicationHours !== undefined)
+      update.publicationDurationHours = input.values.publicationHours;
 
-    await tx.update(vehicleListing).set({ ...update, updatedAt: new Date() }).where(and(
-      eq(vehicleListing.id, listing.id),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-    ));
+    await tx
+      .update(vehicleListing)
+      .set({ ...update, updatedAt: new Date() })
+      .where(
+        and(
+          eq(vehicleListing.id, listing.id),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      );
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
       actorCompanyId: input.companyId,
@@ -255,25 +342,46 @@ export async function publishListing(input: {
   actorUserId: string;
 }): Promise<OwnListingDto> {
   await getDb().transaction(async (tx) => {
-    const [listing] = await tx.select().from(vehicleListing).where(and(
-      eq(vehicleListing.id, input.listingId),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-    )).for("update");
+    const [listing] = await tx
+      .select()
+      .from(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, input.listingId),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      )
+      .for("update");
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
     if (listing.status === "active") return;
-    if (listing.status !== "draft") throw new AccessError(409, "INVALID_LISTING_TRANSITION");
-    if (listing.modelYear === null) throw new AccessError(409, "MODEL_YEAR_REQUIRED");
-    const images = await tx.select({
-      status: vehicleImage.plateRedactionStatus,
-      processingError: vehicleImage.plateProcessingError,
-    }).from(vehicleImage)
+    if (listing.status !== "draft")
+      throw new AccessError(409, "INVALID_LISTING_TRANSITION");
+    if (listing.modelYear === null)
+      throw new AccessError(409, "MODEL_YEAR_REQUIRED");
+    const images = await tx
+      .select({
+        status: vehicleImage.plateRedactionStatus,
+        processingError: vehicleImage.plateProcessingError,
+      })
+      .from(vehicleImage)
       .where(eq(vehicleImage.listingId, listing.id));
-    if (images.length < 1 || images.length > 5) throw new AccessError(409, "IMAGE_COUNT_REQUIRED");
+    if (images.length < 1 || images.length > 5)
+      throw new AccessError(409, "IMAGE_COUNT_REQUIRED");
     if (isPlateRedactionRequired()) {
-      if (images.some((image) => image.processingError === "plate_provider_http_401" || image.processingError === "plate_provider_http_403")) {
+      if (
+        images.some(
+          (image) =>
+            image.processingError === "plate_provider_http_401" ||
+            image.processingError === "plate_provider_http_403",
+        )
+      ) {
         throw new AccessError(503, "IMAGE_REDACTION_AUTHENTICATION_FAILED");
       }
-      if (images.some((image) => image.processingError === "plate_provider_http_429")) {
+      if (
+        images.some(
+          (image) => image.processingError === "plate_provider_http_429",
+        )
+      ) {
         throw new AccessError(503, "IMAGE_REDACTION_TEMPORARILY_UNAVAILABLE");
       }
       if (images.some((image) => image.status === "FAILED")) {
@@ -282,18 +390,32 @@ export async function publishListing(input: {
       if (images.some((image) => image.status === "REVIEW_REQUIRED")) {
         throw new AccessError(409, "IMAGE_REDACTION_REVIEW_REQUIRED");
       }
-      if (images.some((image) => !["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status))) {
+      if (
+        images.some(
+          (image) =>
+            !["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status),
+        )
+      ) {
         throw new AccessError(409, "IMAGE_REDACTION_INCOMPLETE");
       }
     }
     const publishedAt = new Date();
-    await tx.update(vehicleListing).set({
-      status: "active",
-      publishedAt,
-      expiresAt: new Date(publishedAt.getTime() + listing.publicationDurationHours * 3_600_000),
-      updatedAt: publishedAt,
-    })
-      .where(and(eq(vehicleListing.id, listing.id), eq(vehicleListing.status, "draft")));
+    await tx
+      .update(vehicleListing)
+      .set({
+        status: "active",
+        publishedAt,
+        expiresAt: new Date(
+          publishedAt.getTime() + listing.publicationDurationHours * 3_600_000,
+        ),
+        updatedAt: publishedAt,
+      })
+      .where(
+        and(
+          eq(vehicleListing.id, listing.id),
+          eq(vehicleListing.status, "draft"),
+        ),
+      );
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
       actorCompanyId: input.companyId,
@@ -311,17 +433,30 @@ export async function withdrawListing(input: {
   actorUserId: string;
 }): Promise<OwnListingDto> {
   await getDb().transaction(async (tx) => {
-    const [listing] = await tx.select().from(vehicleListing).where(and(
-      eq(vehicleListing.id, input.listingId),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-    )).for("update");
+    const [listing] = await tx
+      .select()
+      .from(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, input.listingId),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      )
+      .for("update");
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
     if (listing.status === "withdrawn") return;
     if (listing.status !== "draft" && listing.status !== "active") {
       throw new AccessError(409, "INVALID_LISTING_TRANSITION");
     }
-    await tx.update(vehicleListing).set({ status: "withdrawn", updatedAt: new Date() })
-      .where(and(eq(vehicleListing.id, listing.id), eq(vehicleListing.sellerCompanyId, input.companyId)));
+    await tx
+      .update(vehicleListing)
+      .set({ status: "withdrawn", updatedAt: new Date() })
+      .where(
+        and(
+          eq(vehicleListing.id, listing.id),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      );
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
       actorCompanyId: input.companyId,
@@ -339,21 +474,33 @@ export async function deleteDraft(input: {
   actorUserId: string;
 }): Promise<void> {
   const objectKeys = await getDb().transaction(async (tx) => {
-    const [listing] = await tx.select().from(vehicleListing).where(and(
-      eq(vehicleListing.id, input.listingId),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-    )).for("update");
+    const [listing] = await tx
+      .select()
+      .from(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, input.listingId),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      )
+      .for("update");
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
-    if (listing.status !== "draft") throw new AccessError(409, "DRAFT_DELETE_ONLY");
+    if (listing.status !== "draft")
+      throw new AccessError(409, "DRAFT_DELETE_ONLY");
 
-    const images = await tx.select({ objectKey: vehicleImage.objectKey })
+    const images = await tx
+      .select({ objectKey: vehicleImage.objectKey })
       .from(vehicleImage)
       .where(eq(vehicleImage.listingId, listing.id));
-    await tx.delete(vehicleListing).where(and(
-      eq(vehicleListing.id, listing.id),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-      eq(vehicleListing.status, "draft"),
-    ));
+    await tx
+      .delete(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, listing.id),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+          eq(vehicleListing.status, "draft"),
+        ),
+      );
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
       actorCompanyId: input.companyId,
@@ -366,8 +513,12 @@ export async function deleteDraft(input: {
   });
 
   const storage = getImageStorage();
-  const results = await Promise.allSettled(objectKeys.map((objectKey) => storage.delete(objectKey)));
-  const failedCount = results.filter((result) => result.status === "rejected").length;
+  const results = await Promise.allSettled(
+    objectKeys.map((objectKey) => storage.delete(objectKey)),
+  );
+  const failedCount = results.filter(
+    (result) => result.status === "rejected",
+  ).length;
   if (failedCount > 0) {
     console.error("Failed to delete private images for removed draft", {
       listingId: input.listingId,
@@ -384,7 +535,11 @@ export async function putListingImage(input: {
   claimedMime: string;
   bytes: Uint8Array;
 }): Promise<OwnListingDto> {
-  if (!Number.isInteger(input.position) || input.position < 1 || input.position > 5) {
+  if (
+    !Number.isInteger(input.position) ||
+    input.position < 1 ||
+    input.position > 5
+  ) {
     throw new AccessError(400, "INVALID_IMAGE_POSITION");
   }
   const source = validateImage(input.bytes, input.claimedMime);
@@ -392,16 +547,28 @@ export async function putListingImage(input: {
   if (current.status === "withdrawn" || current.status === "matched") {
     throw new AccessError(409, "LISTING_NOT_EDITABLE");
   }
-  if (current.status === "active" && !current.images.some((image) => image.position === input.position)) {
+  if (
+    current.status === "active" &&
+    !current.images.some((image) => image.position === input.position)
+  ) {
     throw new AccessError(409, "ACTIVE_LISTING_REPLACE_ONLY");
   }
 
-  const [sameImage] = await getDb().select({ id: vehicleImage.id }).from(vehicleImage).where(and(
-    eq(vehicleImage.listingId, input.listingId),
-    eq(vehicleImage.position, input.position),
-    eq(vehicleImage.sourceChecksumSha256, source.checksumSha256),
-    inArray(vehicleImage.plateRedactionStatus, ["NO_PLATE_DETECTED", "PLATE_REDACTED"]),
-  )).limit(1);
+  const [sameImage] = await getDb()
+    .select({ id: vehicleImage.id })
+    .from(vehicleImage)
+    .where(
+      and(
+        eq(vehicleImage.listingId, input.listingId),
+        eq(vehicleImage.position, input.position),
+        eq(vehicleImage.sourceChecksumSha256, source.checksumSha256),
+        inArray(vehicleImage.plateRedactionStatus, [
+          "NO_PLATE_DETECTED",
+          "PLATE_REDACTED",
+        ]),
+      ),
+    )
+    .limit(1);
   if (sameImage) return current;
 
   const redaction = await redactVehicleImage(input.bytes, source.mimeType);
@@ -428,35 +595,53 @@ export async function putListingImage(input: {
   let previousKey: string | undefined;
   try {
     await getDb().transaction(async (tx) => {
-      const [listing] = await tx.select().from(vehicleListing).where(and(
-        eq(vehicleListing.id, input.listingId),
-        eq(vehicleListing.sellerCompanyId, input.companyId),
-      )).for("update");
+      const [listing] = await tx
+        .select()
+        .from(vehicleListing)
+        .where(
+          and(
+            eq(vehicleListing.id, input.listingId),
+            eq(vehicleListing.sellerCompanyId, input.companyId),
+          ),
+        )
+        .for("update");
       if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
       if (listing.status === "withdrawn" || listing.status === "matched") {
         throw new AccessError(409, "LISTING_NOT_EDITABLE");
       }
-      const [existing] = await tx.select().from(vehicleImage).where(and(
-        eq(vehicleImage.listingId, listing.id),
-        eq(vehicleImage.position, input.position),
-      )).for("update");
+      const [existing] = await tx
+        .select()
+        .from(vehicleImage)
+        .where(
+          and(
+            eq(vehicleImage.listingId, listing.id),
+            eq(vehicleImage.position, input.position),
+          ),
+        )
+        .for("update");
       if (listing.status === "active" && !existing) {
         throw new AccessError(409, "ACTIVE_LISTING_REPLACE_ONLY");
       }
       previousKey = existing?.objectKey;
       if (existing) {
-        await tx.update(vehicleImage).set({
-          objectKey,
-          mimeType: validated.mimeType,
-          byteSize: validated.byteSize,
-          checksumSha256: validated.checksumSha256,
-          sourceChecksumSha256: source.checksumSha256,
-          plateRedactionStatus: redaction.status,
-          plateConfidence: redaction.confidence === null ? null : Math.round(redaction.confidence * 1000),
-          plateProcessedAt: new Date(),
-          plateProcessingError: redaction.error,
-          createdAt: new Date(),
-        }).where(eq(vehicleImage.id, existing.id));
+        await tx
+          .update(vehicleImage)
+          .set({
+            objectKey,
+            mimeType: validated.mimeType,
+            byteSize: validated.byteSize,
+            checksumSha256: validated.checksumSha256,
+            sourceChecksumSha256: source.checksumSha256,
+            plateRedactionStatus: redaction.status,
+            plateConfidence:
+              redaction.confidence === null
+                ? null
+                : Math.round(redaction.confidence * 1000),
+            plateProcessedAt: new Date(),
+            plateProcessingError: redaction.error,
+            createdAt: new Date(),
+          })
+          .where(eq(vehicleImage.id, existing.id));
       } else {
         await tx.insert(vehicleImage).values({
           listingId: listing.id,
@@ -467,7 +652,10 @@ export async function putListingImage(input: {
           checksumSha256: validated.checksumSha256,
           sourceChecksumSha256: source.checksumSha256,
           plateRedactionStatus: redaction.status,
-          plateConfidence: redaction.confidence === null ? null : Math.round(redaction.confidence * 1000),
+          plateConfidence:
+            redaction.confidence === null
+              ? null
+              : Math.round(redaction.confidence * 1000),
           plateProcessedAt: new Date(),
           plateProcessingError: redaction.error,
         });
@@ -492,7 +680,10 @@ export async function putListingImage(input: {
   }
   if (previousKey) {
     await storage.delete(previousKey).catch((error: unknown) => {
-      console.error("Failed to delete replaced private image", { listingId: input.listingId, error });
+      console.error("Failed to delete replaced private image", {
+        listingId: input.listingId,
+        error,
+      });
     });
   }
   return getOwnListing(input.companyId, input.listingId);
@@ -506,16 +697,29 @@ export async function removeListingImage(input: {
 }): Promise<OwnListingDto> {
   let objectKey: string | undefined;
   await getDb().transaction(async (tx) => {
-    const [listing] = await tx.select().from(vehicleListing).where(and(
-      eq(vehicleListing.id, input.listingId),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-    )).for("update");
+    const [listing] = await tx
+      .select()
+      .from(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, input.listingId),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      )
+      .for("update");
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
-    if (listing.status !== "draft") throw new AccessError(409, "DRAFT_IMAGES_REMOVABLE_ONLY");
-    const [image] = await tx.select().from(vehicleImage).where(and(
-      eq(vehicleImage.listingId, listing.id),
-      eq(vehicleImage.position, input.position),
-    )).for("update");
+    if (listing.status !== "draft")
+      throw new AccessError(409, "DRAFT_IMAGES_REMOVABLE_ONLY");
+    const [image] = await tx
+      .select()
+      .from(vehicleImage)
+      .where(
+        and(
+          eq(vehicleImage.listingId, listing.id),
+          eq(vehicleImage.position, input.position),
+        ),
+      )
+      .for("update");
     if (!image) throw new AccessError(404, "IMAGE_NOT_FOUND");
     objectKey = image.objectKey;
     await tx.delete(vehicleImage).where(eq(vehicleImage.id, image.id));
@@ -529,9 +733,14 @@ export async function removeListingImage(input: {
     });
   });
   if (objectKey) {
-    await getImageStorage().delete(objectKey).catch((error: unknown) => {
-      console.error("Failed to delete removed private image", { listingId: input.listingId, error });
-    });
+    await getImageStorage()
+      .delete(objectKey)
+      .catch((error: unknown) => {
+        console.error("Failed to delete removed private image", {
+          listingId: input.listingId,
+          error,
+        });
+      });
   }
   return getOwnListing(input.companyId, input.listingId);
 }
@@ -541,18 +750,26 @@ export async function readOwnListingImage(input: {
   listingId: string;
   position: number;
 }): Promise<{ bytes: Uint8Array; mimeType: string }> {
-  const [image] = await getDb().select({
-    objectKey: vehicleImage.objectKey,
-    mimeType: vehicleImage.mimeType,
-  }).from(vehicleImage)
+  const [image] = await getDb()
+    .select({
+      objectKey: vehicleImage.objectKey,
+      mimeType: vehicleImage.mimeType,
+    })
+    .from(vehicleImage)
     .innerJoin(vehicleListing, eq(vehicleListing.id, vehicleImage.listingId))
-    .where(and(
-      eq(vehicleImage.listingId, input.listingId),
-      eq(vehicleImage.position, input.position),
-      eq(vehicleListing.sellerCompanyId, input.companyId),
-    )).limit(1);
+    .where(
+      and(
+        eq(vehicleImage.listingId, input.listingId),
+        eq(vehicleImage.position, input.position),
+        eq(vehicleListing.sellerCompanyId, input.companyId),
+      ),
+    )
+    .limit(1);
   if (!image) throw new AccessError(404, "IMAGE_NOT_FOUND");
-  return { bytes: await getImageStorage().read(image.objectKey), mimeType: image.mimeType };
+  return {
+    bytes: await getImageStorage().read(image.objectKey),
+    mimeType: image.mimeType,
+  };
 }
 
 export function canMutateListings(role: Role): boolean {
@@ -560,6 +777,8 @@ export function canMutateListings(role: Role): boolean {
 }
 
 export function isPlateRedactionRequired(): boolean {
-  return process.env.PLATE_REDACTION_REQUIRED === "true"
-    || Boolean(process.env.PLATE_RECOGNIZER_API_TOKEN?.trim());
+  return (
+    process.env.PLATE_REDACTION_REQUIRED === "true" ||
+    Boolean(process.env.PLATE_RECOGNIZER_API_TOKEN?.trim())
+  );
 }

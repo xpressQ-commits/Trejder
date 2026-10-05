@@ -34,5 +34,5 @@ export function normalizeIdentifier(identifier: VehicleIdentifier): VehicleIdent
 }
 
 export function canEditActiveListingFields(keys: readonly string[]): boolean {
-  return keys.every((key) => key === "shortComment");
+  return keys.every((key) => key === "shortComment" || key === "equipment" || key === "otherEquipment");
 }

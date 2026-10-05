@@ -9,6 +9,8 @@ export type MarketplaceListingSummary = {
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  equipment: import("@/domain/equipment").EquipmentKey[];
+  otherEquipment: string | null;
   deductibleVat: boolean;
   publishedAt: string;
   expiresAt: string;

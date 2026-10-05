@@ -230,6 +230,11 @@ export const vehicleListing = pgTable(
     modelYear: integer("model_year"),
     mileageKm: integer("mileage_km").notNull(),
     shortComment: varchar("short_comment", { length: 500 }).notNull(),
+    equipment: text("equipment")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    otherEquipment: varchar("other_equipment", { length: 500 }),
     deductibleVat: boolean("deductible_vat").notNull(),
     status: listingStatus("status").notNull().default("draft"),
     version: integer("version").notNull().default(1),
@@ -255,6 +260,7 @@ export const vehicleListing = pgTable(
       table.sellerCompanyId,
       table.status,
     ),
+    index("vehicle_listings_equipment_gin_idx").using("gin", table.equipment),
     check("vehicle_listings_mileage_nonnegative", sql`${table.mileageKm} >= 0`),
     check(
       "vehicle_listings_mileage_whole_mil",

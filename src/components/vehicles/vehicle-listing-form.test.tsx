@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { VehicleListingForm } from "./vehicle-listing-form";
 import type { OwnListing } from "./types";
@@ -7,6 +13,9 @@ const router = { push: vi.fn(), refresh: vi.fn() };
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+}));
+vi.mock("@/components/preferences/preferences-provider", () => ({
+  usePreferences: () => ({ locale: "sv" }),
 }));
 
 beforeAll(() => {
@@ -27,6 +36,38 @@ afterEach(() => {
 });
 
 describe("VehicleListingForm image selection", () => {
+  it("selects, removes and submits multiple structured equipment values", async () => {
+    const listing = ownListing([]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        listing: { ...listing, equipment: ["SURROUND_VIEW_CAMERA"] },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VehicleListingForm listing={listing} />);
+    fireEvent.click(screen.getByText("360° kamera"));
+    fireEvent.click(screen.getByText("Apple CarPlay"));
+    expect(screen.getByText(/2 valda/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Apple CarPlay"));
+    expect(screen.getByText(/1 valda/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Spara utkast" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.equipment).toEqual(["SURROUND_VIEW_CAMERA"]);
+  });
+
+  it("restores saved equipment in edit mode and allows it to be removed", () => {
+    const listing = {
+      ...ownListing([]),
+      equipment: ["HEAD_UP_DISPLAY" as const],
+    };
+    render(<VehicleListingForm listing={listing} />);
+    const checkbox = screen.getByRole("checkbox", { name: "Head-up display" });
+    expect(checkbox).toBeChecked();
+    fireEvent.click(screen.getByText("Head-up display"));
+    expect(checkbox).not.toBeChecked();
+  });
+
   it("selects multiple images, previews them, removes one and compacts the order", () => {
     render(<VehicleListingForm />);
     const input = screen.getByLabelText("Lägg till bilder") as HTMLInputElement;
@@ -37,8 +78,14 @@ describe("VehicleListingForm image selection", () => {
     fireEvent.change(input, { target: { files: [first, second] } });
 
     expect(screen.getByText("2 av 5 bilder valda")).toBeInTheDocument();
-    expect(screen.getByAltText("Förhandsvisning av bild 1")).toHaveAttribute("src", "blob:front.jpg");
-    expect(screen.getByAltText("Förhandsvisning av bild 2")).toHaveAttribute("src", "blob:side.jpg");
+    expect(screen.getByAltText("Förhandsvisning av bild 1")).toHaveAttribute(
+      "src",
+      "blob:front.jpg",
+    );
+    expect(screen.getByAltText("Förhandsvisning av bild 2")).toHaveAttribute(
+      "src",
+      "blob:side.jpg",
+    );
 
     fireEvent.click(screen.getAllByRole("button", { name: "Ta bort" })[0]);
 
@@ -49,51 +96,89 @@ describe("VehicleListingForm image selection", () => {
 
   it("keeps only five files and shows a clear limit error", () => {
     render(<VehicleListingForm />);
-    const files = Array.from({ length: 6 }, (_, index) => new File([String(index)], `${index}.jpg`, { type: "image/jpeg" }));
-    fireEvent.change(screen.getByLabelText("Lägg till bilder"), { target: { files } });
+    const files = Array.from(
+      { length: 6 },
+      (_, index) =>
+        new File([String(index)], `${index}.jpg`, { type: "image/jpeg" }),
+    );
+    fireEvent.change(screen.getByLabelText("Lägg till bilder"), {
+      target: { files },
+    });
 
     expect(screen.getByText("5 av 5 bilder valda")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Max 5 bilder är tillåtna. 1 bild lades inte till.");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Max 5 bilder är tillåtna. 1 bild lades inte till.",
+    );
     expect(screen.getAllByAltText(/Förhandsvisning av bild/)).toHaveLength(5);
   });
 
   it("shows publication progress and keeps a successfully uploaded image after publication is blocked", async () => {
     const draft = ownListing([]);
-    const uploaded = ownListing([{
-      id: "22222222-2222-4222-8222-222222222222",
-      position: 1,
-      mimeType: "image/jpeg",
-      byteSize: 5,
-      plateRedactionStatus: "FAILED",
-      plateConfidence: null,
-      url: "/api/company/listings/11111111-1111-4111-8111-111111111111/images/1",
-    }]);
+    const uploaded = ownListing([
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        position: 1,
+        mimeType: "image/jpeg",
+        byteSize: 5,
+        plateRedactionStatus: "FAILED",
+        plateConfidence: null,
+        url: "/api/company/listings/11111111-1111-4111-8111-111111111111/images/1",
+      },
+    ]);
     let resolveSave!: (response: Response) => void;
-    const saveResponse = new Promise<Response>((resolve) => { resolveSave = resolve; });
-    const fetchMock = vi.fn()
+    const saveResponse = new Promise<Response>((resolve) => {
+      resolveSave = resolve;
+    });
+    const fetchMock = vi
+      .fn()
       .mockReturnValueOnce(saveResponse)
       .mockResolvedValueOnce(Response.json({ listing: uploaded }))
-      .mockResolvedValueOnce(Response.json({ error: "IMAGE_REDACTION_FAILED" }, { status: 409 }));
+      .mockResolvedValueOnce(
+        Response.json({ error: "IMAGE_REDACTION_FAILED" }, { status: 409 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     render(<VehicleListingForm />);
-    fireEvent.change(screen.getByLabelText("Bilmodell"), { target: { value: "XC60" } });
-    fireEvent.change(screen.getByLabelText("Årsmodell"), { target: { value: String(new Date().getFullYear()) } });
-    fireEvent.change(screen.getByLabelText(/Miltal/), { target: { value: "1400" } });
-    fireEvent.change(screen.getByPlaceholderText("Svensksåld. M-sport. HUD. Några mindre märken."), { target: { value: "Fin bil" } });
+    fireEvent.change(screen.getByLabelText("Bilmodell"), {
+      target: { value: "XC60" },
+    });
+    fireEvent.change(screen.getByLabelText("Årsmodell"), {
+      target: { value: String(new Date().getFullYear()) },
+    });
+    fireEvent.change(screen.getByLabelText(/Miltal/), {
+      target: { value: "1400" },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        "Svensksåld. M-sport. HUD. Några mindre märken.",
+      ),
+      { target: { value: "Fin bil" } },
+    );
     fireEvent.change(screen.getByLabelText("Lägg till bilder"), {
-      target: { files: [new File(["image"], "front.jpg", { type: "image/jpeg" })] },
+      target: {
+        files: [new File(["image"], "front.jpg", { type: "image/jpeg" })],
+      },
     });
     fireEvent.click(screen.getByRole("button", { name: "Publicera bil" }));
 
-    expect(await screen.findByRole("dialog", { name: "Förbereder publicering" })).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Publiceringsförlopp" })).toHaveAttribute("aria-valuenow", "8");
+    expect(
+      await screen.findByRole("dialog", { name: "Förbereder publicering" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("progressbar", { name: "Publiceringsförlopp" }),
+    ).toHaveAttribute("aria-valuenow", "8");
 
     resolveSave(Response.json({ listing: draft }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Bildkontrollen kunde inte slutföras");
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Bildkontrollen kunde inte slutföras",
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
     expect(screen.getByAltText("Fordonsbild 1")).toBeInTheDocument();
-    expect(screen.queryByAltText("Förhandsvisning av bild 1")).not.toBeInTheDocument();
+    expect(
+      screen.queryByAltText("Förhandsvisning av bild 1"),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -104,6 +189,8 @@ function ownListing(images: OwnListing["images"]): OwnListing {
     mileageMil: 1400,
     modelYear: new Date().getFullYear(),
     shortComment: "Fin bil",
+    equipment: [],
+    otherEquipment: null,
     deductibleVat: false,
     status: "draft",
     publicationHours: 48,

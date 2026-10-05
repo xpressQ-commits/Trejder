@@ -4,6 +4,7 @@ import { VehicleGallery } from "./vehicle-gallery";
 import { SellerActivity } from "./seller-activity";
 import { Status } from "./own-listings";
 import type { OwnListing } from "./types";
+import { EquipmentList } from "./equipment-list";
 
 export function SellerListingDetail({
   listing,
@@ -75,6 +76,10 @@ export function SellerListingDetail({
           ) : null}
         </dl>
       </div>
+      <EquipmentList
+        equipment={listing.equipment}
+        otherEquipment={listing.otherEquipment}
+      />
       {listing.status !== "draft" ? (
         <SellerActivity listingId={listing.id} />
       ) : null}

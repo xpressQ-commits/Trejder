@@ -6,6 +6,7 @@ import { formatMileage, formatPublished } from "./marketplace-feed";
 import type { MarketplaceListingSummary } from "./types";
 import { MarketplaceInteractions } from "@/components/marketplace/marketplace-interactions";
 import { VehicleGallery } from "@/components/vehicles/vehicle-gallery";
+import { EquipmentList } from "@/components/vehicles/equipment-list";
 
 export function MarketplaceDetail({
   listing,
@@ -73,6 +74,10 @@ export function MarketplaceDetail({
           </div>
         </dl>
       </div>
+      <EquipmentList
+        equipment={listing.equipment}
+        otherEquipment={listing.otherEquipment}
+      />
       {!listing.isOwnListing ? (
         <MarketplaceInteractions listingId={listing.id} canBid={canBid} />
       ) : null}

@@ -1,13 +1,32 @@
 export type ListingStatus = "draft" | "active" | "withdrawn" | "matched";
-export type ListingIdentifier = { kind: "registration" | "model"; value: string };
-export type PlateRedactionStatus = "NOT_CHECKED" | "PROCESSING" | "NO_PLATE_DETECTED" | "PLATE_REDACTED" | "REVIEW_REQUIRED" | "FAILED";
-export type ListingImage = { id: string; position: number; mimeType: string; byteSize: number; plateRedactionStatus: PlateRedactionStatus; plateConfidence: number | null; url: string };
+export type ListingIdentifier = {
+  kind: "registration" | "model";
+  value: string;
+};
+export type PlateRedactionStatus =
+  | "NOT_CHECKED"
+  | "PROCESSING"
+  | "NO_PLATE_DETECTED"
+  | "PLATE_REDACTED"
+  | "REVIEW_REQUIRED"
+  | "FAILED";
+export type ListingImage = {
+  id: string;
+  position: number;
+  mimeType: string;
+  byteSize: number;
+  plateRedactionStatus: PlateRedactionStatus;
+  plateConfidence: number | null;
+  url: string;
+};
 export type OwnListing = {
   id: string;
   identifier: ListingIdentifier;
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  equipment: import("@/domain/equipment").EquipmentKey[];
+  otherEquipment: string | null;
   deductibleVat: boolean;
   status: ListingStatus;
   publicationHours: number;
@@ -17,8 +36,15 @@ export type OwnListing = {
   images: ListingImage[];
 };
 
-export const listingStatusLabel: Record<ListingStatus, string> = { draft: "Utkast", active: "Aktiv", withdrawn: "Avslutad", matched: "Matchad" };
-export function identifierLabel(identifier: ListingIdentifier) { return identifier.value; }
+export const listingStatusLabel: Record<ListingStatus, string> = {
+  draft: "Utkast",
+  active: "Aktiv",
+  withdrawn: "Avslutad",
+  matched: "Matchad",
+};
+export function identifierLabel(identifier: ListingIdentifier) {
+  return identifier.value;
+}
 
 export function serializeOwnListing(listing: {
   id: string;
@@ -26,6 +52,8 @@ export function serializeOwnListing(listing: {
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  equipment: import("@/domain/equipment").EquipmentKey[];
+  otherEquipment: string | null;
   deductibleVat: boolean;
   status: ListingStatus;
   publicationHours: number;
