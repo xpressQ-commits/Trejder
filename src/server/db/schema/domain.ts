@@ -59,6 +59,11 @@ export const bidStatus = pgEnum("bid_status", [
   "accepted",
   "lost",
 ]);
+export const dealStatus = pgEnum("deal_status", [
+  "accepted",
+  "in_progress",
+  "completed",
+]);
 export const accountApplicationStatus = pgEnum("account_application_status", [
   "pending",
   "approved",
@@ -413,6 +418,14 @@ export const match = pgTable(
       length: 80,
     }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull().default("SEK"),
+    status: dealStatus("status").notNull().default("accepted"),
+    sellerCompletedAt: timestamp("seller_completed_at", {
+      withTimezone: true,
+    }),
+    buyerCompletedAt: timestamp("buyer_completed_at", {
+      withTimezone: true,
+    }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     acceptedAt: timestamp("accepted_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

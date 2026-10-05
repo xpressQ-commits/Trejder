@@ -23,6 +23,7 @@ const buyer = alias(company, "chat_buyer");
 
 type ThreadRow = {
   id: string;
+  matchId: string;
   bidId: string | null;
   bidStatus: "active" | "withdrawn" | "accepted" | "lost" | null;
   listingId: string;
@@ -39,6 +40,7 @@ type ThreadRow = {
 
 export type DealerChatThreadDto = {
   id: string;
+  matchId: string;
   listingId: string;
   listingLabel: string;
   counterpartyLabel: string;
@@ -56,6 +58,7 @@ export type DealerChatMessageDto = {
 
 const threadSelection = {
   id: chatThread.id,
+  matchId: match.id,
   bidId: chatThread.bidId,
   bidStatus: bid.status,
   listingId: chatThread.listingId,
@@ -87,6 +90,7 @@ function dealerThread(
   const revealed = identityRevealed(row);
   return {
     id: row.id,
+    matchId: row.matchId,
     listingId: row.listingId,
     listingLabel: listingLabel(row),
     counterpartyLabel: dealerCounterpartyLabel({
@@ -339,8 +343,8 @@ export async function sendChatMessage(input: {
           recipientUserId: userId,
           type: "chat.message",
           body: "Du har fått ett nytt meddelande",
-          resourceType: "chat_thread",
-          resourceId: input.threadId,
+          resourceType: "match",
+          resourceId: participantThread.matchId,
         })),
       );
   });

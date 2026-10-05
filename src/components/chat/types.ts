@@ -1,5 +1,6 @@
 export type DealerThread = {
   id: string;
+  matchId: string;
   listingId: string;
   listingLabel: string;
   counterpartyLabel: string;

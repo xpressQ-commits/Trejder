@@ -10,7 +10,7 @@
 - **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag, 48–120 hour publication duration and server-controlled state.
 - **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 1–5 valid images; completed plate checks are required when redaction is configured.
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.
-- **Match:** immutable result of accepting one bid, including amount and historical commercial terms.
+- **Match/Deal:** result of accepting one bid, including immutable parties, amount and historical commercial terms plus a small deal lifecycle (`accepted -> in_progress -> completed`).
 - **AuditLog:** append-only security and domain event record with sanitized metadata.
 - **ListingQuestion:** public, permanently anonymous dealer question with at most one seller answer.
 - **Notification:** identity-safe in-app event for one user.
@@ -30,6 +30,7 @@
 - `matches.listing_id` and `matches.accepted_bid_id` are unique.
 - A composite match-to-bid foreign key requires the accepted bid, listing, seller and buyer to agree.
 - Match amount and fee snapshots are integer öre; parties must differ and currency is SEK.
+- Deal completion requires separate seller and buyer confirmations; the second confirmation changes the deal to `completed` transactionally.
 
 The publish transaction requires 1–5 images. When plate redaction is configured, it permits only `NO_PLATE_DETECTED` or `PLATE_REDACTED` before changing the listing to active.
 
@@ -52,6 +53,8 @@ Listing:
 | Accepted bid | remains visible and anonymous | becomes full retained-history deal chat | revealed only to matched parties | allowed only in matched chat |
 
 Public Q&A never creates private-message authority. A private thread requires a completed match keyed by its accepted bid and is accessible only to that match's seller and buyer. Acceptance is both the chat-authority and identity-reveal transition. Historical threads created before acceptance are retained for audit safety but are excluded from dealer reads and writes.
+
+The match is the authoritative Deal record and is created in the same transaction as bid acceptance. Its unique listing and accepted-bid constraints prevent duplicate deals. A single chat thread is created for the accepted bid; older matches without a thread are handled by the same idempotent create-or-get path when their deal detail is opened.
 
 Bid:
 

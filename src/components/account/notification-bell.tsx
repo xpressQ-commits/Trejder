@@ -17,9 +17,9 @@ export type HeaderNotification = {
 };
 
 function destination(item: HeaderNotification) {
+  if (item.resourceType === "match") return `/app/affarer/${item.resourceId}`;
   if (item.resourceType === "chat_thread")
     return `/app/chattar?thread=${item.resourceId}`;
-  if (item.type === "bid.accepted") return "/app/affarer";
   if (
     item.resourceType === "listing" &&
     (item.type === "bid.received" || item.type === "question.received")
@@ -46,8 +46,15 @@ export function NotificationBell({
     const close = (event: MouseEvent) => {
       if (!panel.current?.contains(event.target as Node)) setOpen(false);
     };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", escape);
+    };
   }, [open]);
   useEffect(() => {
     const sync = (event: Event) => {
@@ -133,7 +140,7 @@ export function NotificationBell({
         <div
           role="dialog"
           aria-label="Notiser"
-          className="absolute right-0 z-40 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-xl"
+          className="fixed top-20 right-4 left-4 z-50 flex max-h-[min(70vh,37.5rem)] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-xl lg:absolute lg:top-auto lg:right-0 lg:bottom-full lg:left-auto lg:mb-2 lg:w-[min(22rem,calc(100vw-2rem))]"
         >
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <strong>Notiser</strong>
@@ -148,7 +155,7 @@ export function NotificationBell({
               </button>
             ) : null}
           </div>
-          <ul className="max-h-96 overflow-y-auto">
+          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {items.length ? (
               items.slice(0, 10).map((item) => (
                 <li

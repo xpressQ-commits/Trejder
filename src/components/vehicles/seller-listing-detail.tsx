@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Pencil } from "lucide-react";
+import { Handshake, Pencil } from "lucide-react";
 import { VehicleGallery } from "./vehicle-gallery";
 import { SellerActivity } from "./seller-activity";
 import { Status } from "./own-listings";
@@ -9,9 +9,11 @@ import { EquipmentList } from "./equipment-list";
 export function SellerListingDetail({
   listing,
   canMutate,
+  dealId,
 }: {
   listing: OwnListing;
   canMutate: boolean;
+  dealId?: string;
 }) {
   return (
     <article>
@@ -31,9 +33,17 @@ export function SellerListingDetail({
             {new Intl.NumberFormat("sv-SE").format(listing.mileageMil)} mil
           </p>
         </div>
-        {canMutate &&
-        listing.status !== "withdrawn" &&
-        listing.status !== "matched" ? (
+        {dealId ? (
+          <Link
+            href={`/app/affarer/${dealId}`}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--primary)] px-4 font-semibold text-white hover:opacity-90"
+          >
+            <Handshake size={17} />
+            Öppna affär
+          </Link>
+        ) : canMutate &&
+          listing.status !== "withdrawn" &&
+          listing.status !== "matched" ? (
           <Link
             href={`/app/bilar/${listing.id}/redigera`}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 font-semibold hover:bg-[var(--surface-subtle)]"

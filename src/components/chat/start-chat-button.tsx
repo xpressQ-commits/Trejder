@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { Handshake } from "lucide-react";
 import { primaryButtonClassName } from "@/components/ui/form-controls";
 
 export function StartChatButton({
@@ -31,9 +31,9 @@ export function StartChatButton({
           });
           if (response.ok) {
             const result = (await response.json()) as {
-              thread: { id: string };
+              thread: { id: string; matchId: string };
             };
-            router.push(`/app/chattar?thread=${result.thread.id}`);
+            router.push(`/app/affarer/${result.thread.matchId}`);
           } else {
             setError(true);
             setPending(false);
@@ -41,12 +41,12 @@ export function StartChatButton({
         }}
         className={primaryButtonClassName}
       >
-        <MessageCircle className="mr-2" size={18} />
-        {pending ? "Öppnar…" : "Öppna chat"}
+        <Handshake className="mr-2" size={18} />
+        {pending ? "Öppnar…" : "Öppna affär"}
       </button>
       {error ? (
         <p role="alert" className="mt-2 text-sm text-[var(--danger)]">
-          Chatten kunde inte öppnas.
+          Affären kunde inte öppnas.
         </p>
       ) : null}
     </div>

@@ -87,6 +87,7 @@ export function AppShell({
           icon: MessageCircle,
           badge: unreadChatCount,
         },
+        { href: "/app/affarer", label: t("nav.deals"), icon: Handshake },
         { href: "/app/foretag", label: t("nav.company"), icon: Building2 },
         ...(role === "admin"
           ? [{ href: "/app/anvandare", label: t("nav.users"), icon: Users }]
