@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import {
   ACTIVE_COMPANY_COOKIE,
-  requireDealerPermission,
+  requireDealerMembershipPermission,
 } from "@/server/company/context";
 import { readMarketplaceListingImage } from "@/server/marketplace/listings";
 import { AccessError, errorResponse } from "@/server/security";
@@ -22,7 +22,7 @@ export async function GET(
       throw new AccessError(404, "IMAGE_NOT_FOUND");
     const companyId =
       (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
-    const context = await requireDealerPermission(
+    const context = await requireDealerMembershipPermission(
       request.headers,
       companyId,
       "listing:read",

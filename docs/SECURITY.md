@@ -28,7 +28,7 @@ The future accepted-match price target is 89,900 öre excluding VAT per dealer s
 
 ### Subscription and Stripe isolation
 
-Dealer membership and subscription access are separate checks. Dealer application routes require both; dealer ADMIN billing-remediation routes deliberately permit an unpaid company. Platform-admin authority remains independent. Manual block outranks every Stripe webhook, and no webhook clears an override.
+Dealer membership and subscription access are separate checks. Read-only marketplace routes and company settings require a fresh active dealer membership but deliberately permit an unpaid company. Dealer mutations, including bidding, remain subscription-gated on the server. Dealer ADMIN billing, company-contact and member-remediation routes also permit an unpaid company. Platform-admin authority remains independent. Manual block outranks every Stripe webhook, and no webhook clears an override.
 
 Checkout and portal requests derive the company from the authenticated selected-company cookie plus a fresh active ADMIN membership. They accept no company, customer, price or amount from the client. Superadmin subscription mutations require fresh platform authority and exact same origin. Gratis days are bounded to 1–3650.
 

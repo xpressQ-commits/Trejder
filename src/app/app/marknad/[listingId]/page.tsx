@@ -2,6 +2,7 @@ import { MarketplaceDetail } from "@/components/marketplace/marketplace-detail";
 import { getCurrentDealerContext } from "@/app/app/_lib/current-context";
 import { getMarketplaceListing } from "@/server/marketplace/listings";
 import { notFound } from "next/navigation";
+import { getCompanySubscriptionAccess } from "@/server/billing";
 
 export default async function MarketplaceListingPage({
   params,
@@ -9,6 +10,7 @@ export default async function MarketplaceListingPage({
   params: Promise<{ listingId: string }>;
 }) {
   const context = await getCurrentDealerContext();
+  const subscription = await getCompanySubscriptionAccess(context.company.id);
   let listing;
   try {
     listing = await getMarketplaceListing(
@@ -26,6 +28,7 @@ export default async function MarketplaceListingPage({
         expiresAt: listing.expiresAt.toISOString(),
       }}
       canBid={context.membership.role !== "viewer"}
+      hasSubscriptionAccess={subscription.canAccess}
     />
   );
 }

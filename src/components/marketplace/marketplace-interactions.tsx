@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { StartChatButton } from "@/components/chat/start-chat-button";
 import {
   FormMessage,
@@ -22,11 +24,14 @@ type Bid = { id: string; amountOre: number; status: string };
 export function MarketplaceInteractions({
   listingId,
   canBid,
+  hasSubscriptionAccess,
 }: {
   listingId: string;
   canBid: boolean;
+  hasSubscriptionAccess: boolean;
 }) {
   const { t, locale } = usePreferences();
+  const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [ownBid, setOwnBid] = useState<Bid | null>(null);
   const [message, setMessage] = useState<{
@@ -69,6 +74,16 @@ export function MarketplaceInteractions({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amountOre }),
     });
+    const responseBody = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    if (
+      response.status === 403 &&
+      responseBody?.error === "SUBSCRIPTION_REQUIRED"
+    ) {
+      router.push("/app/installningar?billing=required");
+      return;
+    }
     setMessage({
       type: response.ok ? "success" : "error",
       text: response.ok ? t("bids.saved") : t("bids.error"),
@@ -100,7 +115,7 @@ export function MarketplaceInteractions({
       {message ? (
         <FormMessage type={message.type}>{message.text}</FormMessage>
       ) : null}
-      {canBid ? (
+      {canBid && hasSubscriptionAccess ? (
         <section>
           <h2 className="text-xl font-semibold">{t("bids.place")}</h2>
           {ownBid ? (
@@ -132,6 +147,22 @@ export function MarketplaceInteractions({
             </div>
           ) : null}
         </section>
+      ) : canBid ? (
+        <section className="rounded-2xl border border-[var(--warning)] bg-[var(--warning-surface)] p-5">
+          <h2 className="text-xl font-semibold">
+            Premium krävs för att lägga bud
+          </h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Du kan fortsätta se hela marknaden. Aktivera eller förnya företagets
+            abonnemang för att lägga bud och ställa frågor.
+          </p>
+          <Link
+            href="/app/installningar?billing=required"
+            className={`${primaryButtonClassName} mt-4 inline-flex`}
+          >
+            Gå till abonnemang
+          </Link>
+        </section>
       ) : null}
       <section>
         <h2 className="text-xl font-semibold">{t("questions.title")}</h2>
@@ -161,7 +192,7 @@ export function MarketplaceInteractions({
             </article>
           ))}
         </div>
-        {canBid ? (
+        {canBid && hasSubscriptionAccess ? (
           <form onSubmit={ask} className="mt-4 max-w-xl space-y-3">
             <textarea
               name="body"

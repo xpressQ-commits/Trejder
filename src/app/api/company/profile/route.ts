@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import {
   ACTIVE_COMPANY_COOKIE,
-  requireDealerPermission,
+  requireDealerAdminForBilling,
 } from "@/server/company/context";
 import { updateCompanyContact } from "@/server/company/profile";
 import {
@@ -23,10 +23,9 @@ export async function PATCH(request: Request) {
     assertSameOrigin(request);
     const companyId =
       (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
-    const context = await requireDealerPermission(
+    const context = await requireDealerAdminForBilling(
       request.headers,
       companyId,
-      "company:manage",
     );
     const parsed = inputSchema.safeParse(await request.json());
     if (!parsed.success) throw new AccessError(400, "INVALID_COMPANY_CONTACT");

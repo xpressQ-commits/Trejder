@@ -32,7 +32,7 @@ An explicitly bootstrapped platform administrator has a separate `/admin` surfac
 
 ## Phase 3.5 — Platform subscriptions and Stripe foundation (implemented in code)
 
-Server-owned Gratis/Premium/Obetald access state, deterministic manual overrides, paginated platform company search, canonical active-seat pricing, Stripe Checkout/Customer Portal, signed idempotent webhooks and retryable licensed-seat synchronization. Premium is 699 SEK/month excluding VAT including two active users, then 199 SEK/month excluding VAT per additional active membership. Actual future 899 SEK-per-side transaction charging remains out of scope.
+Server-owned Gratis/Premium/Obetald access state, deterministic manual overrides, paginated platform company search, canonical active-seat pricing, Stripe Checkout/Customer Portal, signed idempotent webhooks and retryable licensed-seat synchronization. Premium is 699 SEK/month excluding VAT including two active users, then 199 SEK/month excluding VAT per additional active membership. An unpaid active dealer can sign in, browse the marketplace and reach consolidated company/subscription settings; dealer mutations remain server-gated and billing remediation remains available to ADMIN. Actual future 899 SEK-per-side transaction charging remains out of scope.
 
 ## Phase 4 — Anonymous bidding
 

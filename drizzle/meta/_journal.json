@@ -134,6 +134,13 @@
       "when": 1791296234699,
       "tag": "0018_brown_fallen_one",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791300697372,
+      "tag": "0019_trejder_member_phone",
+      "breakpoints": true
     }
   ]
 }

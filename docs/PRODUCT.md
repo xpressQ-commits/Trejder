@@ -24,7 +24,7 @@ There is one company type: car dealer. The same company may publish, bid, accept
 
 Authorization is always server-side.
 
-Dealer onboarding remains approval-based. A public applicant may submit contact and company details for manual review, but this never creates a user, company or membership. Platform administrators review pending, approved and rejected applications. Approval creates the dealer company and sends its initial ADMIN a single-use invitation; rejection sends a non-approval notice. The platform may also create approved credentials directly: a SUPERADMIN account needs no company, while ADMIN, TRADER and VIEWER authority always belongs to a selected existing company. There is no public self-registration, and a user can never attach themselves by entering an organization number or company ID. Company ADMIN users may invite additional ADMIN, TRADER or VIEWER users.
+Dealer onboarding remains approval-based. A public applicant may submit contact and company details for manual review, but this never creates a user, company or membership. Platform administrators review pending, approved and rejected applications. Approval creates the dealer company and sends its initial ADMIN a single-use invitation; rejection sends a non-approval notice. The platform may also create approved credentials directly: a SUPERADMIN account needs no company, while ADMIN, TRADER and VIEWER authority always belongs to a selected existing company. There is no public self-registration, and a user can never attach themselves by entering an organization number or company ID. Company ADMIN users may invite additional ADMIN, TRADER or VIEWER users and maintain a tenant-scoped phone number for each company membership.
 
 ## Marketplace rules
 
@@ -44,6 +44,8 @@ A verified `PRIVATE_CUSTOMER` may publish and manage only their own vehicles, re
 ## Phase 3.5 subscription access
 
 The server is authoritative for both membership and subscription access. Manual block, manual Premium, active free access and Stripe state are evaluated in that precedence order. A Stripe webhook cannot erase a manual decision. Free access has an explicit end instant and expires to Obetald unless a lower-precedence active Stripe subscription applies. Gratis cannot be granted while a live Stripe subscription exists, preventing accidental parallel charging; the subscription must first be ended in Stripe.
+
+An active dealer membership may always sign in, browse the marketplace and open company settings. Obetald blocks dealer mutations, including bidding and asking questions, rather than blocking login or marketplace reads. A blocked bid attempt leads to Settings, where every dealer user can see subscription state and an ADMIN can start, renew or manage billing. Dealer company details, subscription status and ADMIN user management live together under Settings.
 
 ## Current non-goals
 

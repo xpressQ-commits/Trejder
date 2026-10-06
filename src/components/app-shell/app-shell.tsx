@@ -2,7 +2,6 @@
 
 import {
   BadgeDollarSign,
-  Building2,
   CarFront,
   Handshake,
   LayoutDashboard,
@@ -10,7 +9,6 @@ import {
   Settings,
   ShieldCheck,
   Store,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
@@ -88,10 +86,6 @@ export function AppShell({
           badge: unreadChatCount,
         },
         { href: "/app/affarer", label: t("nav.deals"), icon: Handshake },
-        { href: "/app/foretag", label: t("nav.company"), icon: Building2 },
-        ...(role === "admin"
-          ? [{ href: "/app/anvandare", label: t("nav.users"), icon: Users }]
-          : []),
         ...(isPlatformAdmin
           ? [{ href: "/admin", label: t("nav.superadmin"), icon: ShieldCheck }]
           : []),

@@ -5,18 +5,23 @@ import {
   getAuthenticatedUser,
   listActiveCompanyContexts,
   requireCompanyPermission,
-  requireDealerPermission,
+  requireDealerMembershipPermission,
   requirePrivateCustomerContext,
   type ActiveCompanyContext,
 } from "@/server/company/context";
 import { AccessError } from "@/server/security";
 
-async function withBillingRemediation<T>(operation: () => Promise<T>): Promise<T> {
+async function withBillingRemediation<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
   try {
     return await operation();
   } catch (error) {
-    if (error instanceof AccessError && error.code === "SUBSCRIPTION_REQUIRED") {
-      redirect("/app/foretag");
+    if (
+      error instanceof AccessError &&
+      error.code === "SUBSCRIPTION_REQUIRED"
+    ) {
+      redirect("/app/installningar?billing=required");
     }
     throw error;
   }
@@ -44,21 +49,21 @@ export async function getOptionalCurrentCompanyContext(): Promise<ActiveCompanyC
 
 export async function getCurrentCompanyContext() {
   const requestHeaders = await headers();
-  const selectedCompanyId = (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
+  const selectedCompanyId =
+    (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
   return withBillingRemediation(() =>
-    requireCompanyPermission(
-      requestHeaders,
-      selectedCompanyId,
-      "company:read",
-    ),
+    requireCompanyPermission(requestHeaders, selectedCompanyId, "company:read"),
   );
 }
 
 export async function getCurrentDealerContext() {
   const requestHeaders = await headers();
-  const selectedCompanyId = (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
-  return withBillingRemediation(() =>
-    requireDealerPermission(requestHeaders, selectedCompanyId, "listing:read"),
+  const selectedCompanyId =
+    (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
+  return requireDealerMembershipPermission(
+    requestHeaders,
+    selectedCompanyId,
+    "listing:read",
   );
 }
 

@@ -11,9 +11,11 @@ import { EquipmentList } from "@/components/vehicles/equipment-list";
 export function MarketplaceDetail({
   listing,
   canBid,
+  hasSubscriptionAccess,
 }: {
   listing: MarketplaceListingSummary;
   canBid: boolean;
+  hasSubscriptionAccess: boolean;
 }) {
   const images = [...listing.images].sort((a, b) => a.position - b.position);
   return (
@@ -79,7 +81,11 @@ export function MarketplaceDetail({
         otherEquipment={listing.otherEquipment}
       />
       {!listing.isOwnListing ? (
-        <MarketplaceInteractions listingId={listing.id} canBid={canBid} />
+        <MarketplaceInteractions
+          listingId={listing.id}
+          canBid={canBid}
+          hasSubscriptionAccess={hasSubscriptionAccess}
+        />
       ) : null}
     </article>
   );

@@ -27,6 +27,7 @@
 - `invoice.payment_failed` records `past_due` without deleting data and retains Premium access during Stripe's collection retries. Stripe `unpaid`/canceled subscription lifecycle state produces Obetald; a matching current-subscription `invoice.paid` restores Stripe-backed Premium only when no higher manual override exists.
 - Membership commits only mark seat synchronization pending. A retryable server worker updates the licensed Stripe item outside the membership transaction.
 - Checkout is allowed only when no manual override or active free window exists and no live Stripe subscription is already linked. This prevents charging while a higher-precedence access decision remains visible.
+- An active dealer membership is sufficient for marketplace reads and subscription/settings remediation. A valid subscription is additionally required for dealer mutations such as bidding and asking questions.
 
 ## Invariants encoded in the schema
 
@@ -109,5 +110,6 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 
 - Invitation: `pending -> accepted | revoked | expired`. Acceptance locks the row, derives company and role from it, and consumes it in the same transaction that creates membership.
 - Membership: `active <-> suspended`, or `active/suspended -> revoked`. Revocation is terminal. Only a fresh active ADMIN membership may manage members.
+- A member phone number belongs to the company membership, not the global user, so the same person can keep different company contact details without cross-tenant updates.
 - A company-row lock serializes every membership mutation that could change the number of active ADMINs. The final active ADMIN cannot be demoted, suspended or revoked.
 - Suspended and revoked memberships are excluded whenever dealer context is resolved, so an existing authentication session does not preserve dealer access.
