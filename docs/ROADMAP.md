@@ -30,6 +30,10 @@ The implementation and adversarial test coverage are complete in code. Migration
 
 An explicitly bootstrapped platform administrator has a separate `/admin` surface for global company operations. It can create and edit dealer companies, suspend or reactivate company access, change existing company memberships, review public dealer applications, and create an immediately active credential user for a selected company and explicit dealer role. Application approval creates a company and initial ADMIN invitation; rejection records and emails the decision. All mutations require fresh platform authority, same-origin requests and audit records. Company removal is deliberately implemented as reversible suspension rather than destructive deletion. Public dealer applications never create application access on submission.
 
+## Phase 3.5 — Platform subscriptions and Stripe foundation (implemented in code)
+
+Server-owned Gratis/Premium/Obetald access state, deterministic manual overrides, paginated platform company search, canonical active-seat pricing, Stripe Checkout/Customer Portal, signed idempotent webhooks and retryable licensed-seat synchronization. Premium is 699 SEK/month excluding VAT including two active users, then 199 SEK/month excluding VAT per additional active membership. Actual future 899 SEK-per-side transaction charging remains out of scope.
+
 ## Phase 4 — Anonymous bidding
 
 Create/update/withdraw bid, listing-scoped bidder aliases and seller bid view. Ship only with anonymity contracts, IDOR tests, fee/amount mass-assignment tests and audit coverage.
@@ -44,4 +48,4 @@ Verified private-customer onboarding, seller-only navigation and listings, anony
 
 ## Later, separately approved
 
-Billing operations.
+Transaction billing, debt-collection policy beyond conservative access restriction, refunds/credits and annual plans.

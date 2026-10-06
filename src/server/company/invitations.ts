@@ -6,6 +6,7 @@ import { getDb } from "@/server/db";
 import { account, auditLog, company, companyInvitation, companyMembership, user } from "@/server/db/schema";
 import { sendInvitationEmail } from "@/server/email";
 import { AccessError, constantTimeTextEqual, normalizeEmail } from "@/server/security";
+import { markSeatSyncPending } from "@/server/billing";
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -146,6 +147,7 @@ export async function acceptCompanyInvitation(input: {
       return { alreadyMember: true as const };
     }
     await tx.insert(companyMembership).values({ companyId: invitation.companyId, userId: acceptingUserId, role: invitation.role });
+    await markSeatSyncPending(invitation.companyId, tx);
     const consumed = await tx.update(companyInvitation).set({ status: "accepted", acceptedAt: new Date() })
       .where(and(eq(companyInvitation.id, invitation.id), eq(companyInvitation.status, "pending"))).returning({ id: companyInvitation.id });
     if (consumed.length !== 1) throw new AccessError(404, "INVALID_INVITATION");

@@ -24,6 +24,16 @@ Private-customer accounts use a dedicated `private_customer` membership role and
 
 Money is integer öre. The current server policy is 49,900 öre excluding VAT on each side of a dealer match. Acceptance snapshots both fees and a terms version in the Match. Client-supplied amount, fee, party or state fields cannot populate the match.
 
+The future accepted-match price target is 89,900 öre excluding VAT per dealer side, but Phase 3.5 does not change or charge the runtime match fee. Premium billing is separately fixed at 69,900 öre/month plus 19,900 öre per active user above two. Only the canonical server seat function supplies Stripe quantity.
+
+### Subscription and Stripe isolation
+
+Dealer membership and subscription access are separate checks. Dealer application routes require both; dealer ADMIN billing-remediation routes deliberately permit an unpaid company. Platform-admin authority remains independent. Manual block outranks every Stripe webhook, and no webhook clears an override.
+
+Checkout and portal requests derive the company from the authenticated selected-company cookie plus a fresh active ADMIN membership. They accept no company, customer, price or amount from the client. Superadmin subscription mutations require fresh platform authority and exact same origin. Gratis days are bounded to 1–3650.
+
+Stripe webhooks require a valid signature over the unparsed body. Processed event IDs are unique, so replays cannot duplicate business actions. Audit metadata may contain Stripe object IDs and statuses, but never secrets, payment credentials or full payment details. An invoice failure records a conservative billing problem; it never removes company data or memberships.
+
 ### State, concurrency and audit
 
 Publishing, bid mutation and acceptance are server-controlled transitions. Acceptance uses a single transaction, row locking/conditional updates and unique constraints. Sensitive commands use idempotency where retries can duplicate effects. Successful important actions append a sanitized audit record attributed from the session, never the request body.

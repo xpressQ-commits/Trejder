@@ -14,6 +14,19 @@
 - **AuditLog:** append-only security and domain event record with sanitized metadata.
 - **ListingQuestion:** public, permanently anonymous dealer question with at most one seller answer.
 - **Notification:** identity-safe in-app event for one user.
+- **CompanySubscription:** one dealer-company billing/access aggregate containing Stripe references, time-limited free access, explicit manual override and retryable seat-sync state.
+- **ProcessedStripeEvent:** durable Stripe event-ID receipt that makes webhook handling idempotent.
+
+## Subscription and seat policy
+
+- Premium is 69,900 öre/month excluding VAT and includes two active company memberships.
+- Each additional active membership is 19,900 öre/month excluding VAT. Canonical extra quantity is `max(activeMembershipCount - 2, 0)`.
+- Suspended/revoked memberships and pending invitations never count. The browser never calculates a chargeable quantity.
+- Effective precedence is `manual block > manual Premium > unexpired free access > Stripe state > Obetald`.
+- Gratis expires at its exact stored end instant. It cannot be granted over a live Stripe subscription, because that would leave Stripe charging while access appears free.
+- `invoice.payment_failed` records `past_due` without deleting data and retains Premium access during Stripe's collection retries. Stripe `unpaid`/canceled subscription lifecycle state produces Obetald; a matching current-subscription `invoice.paid` restores Stripe-backed Premium only when no higher manual override exists.
+- Membership commits only mark seat synchronization pending. A retryable server worker updates the licensed Stripe item outside the membership transaction.
+- Checkout is allowed only when no manual override or active free window exists and no live Stripe subscription is already linked. This prevents charging while a higher-precedence access decision remains visible.
 
 ## Invariants encoded in the schema
 

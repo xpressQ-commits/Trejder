@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requirePlatformAdmin } from "@/server/platform-admin";
-import { createPlatformCompany, listPlatformCompanies } from "@/server/platform-companies";
+import { createPlatformCompany, listPlatformCompaniesPage } from "@/server/platform-companies";
 import { AccessError, assertSameOrigin, errorResponse } from "@/server/security";
 
 const companyInput = z.object({
@@ -12,7 +12,11 @@ const companyInput = z.object({
 export async function GET(request: Request) {
   try {
     await requirePlatformAdmin(request.headers);
-    return Response.json({ companies: await listPlatformCompanies() });
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get("page") ?? "1");
+    const pageSize = Number(url.searchParams.get("pageSize") ?? "25");
+    if (!Number.isSafeInteger(page) || !Number.isSafeInteger(pageSize)) throw new AccessError(400, "INVALID_PAGINATION");
+    return Response.json(await listPlatformCompaniesPage({ query: url.searchParams.get("q") ?? "", page, pageSize }));
   } catch (error) { return errorResponse(error); }
 }
 

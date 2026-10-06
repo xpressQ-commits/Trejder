@@ -1,19 +1,32 @@
 import { cookies, headers } from "next/headers";
 import { CompanyContactForm } from "@/components/company/company-contact-form";
+import { CompanyBillingActions } from "@/components/company/company-billing-actions";
 import {
   ACTIVE_COMPANY_COOKIE,
+  requireActiveCompanyContext,
+  requireDealerAdminForBilling,
   requireDealerPermission,
 } from "@/server/company/context";
 import { getCompanyContact } from "@/server/company/profile";
+import { getCompanyBillingSummary } from "@/server/billing";
+import { AccessError } from "@/server/security";
 
 export default async function CompanyPage() {
   const companyId = (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null;
-  const context = await requireDealerPermission(
-    await headers(),
-    companyId,
-    "company:read",
-  );
+  const requestHeaders = await headers();
+  const context = await requireActiveCompanyContext(requestHeaders, companyId);
+  if (context.company.kind !== "dealer" || context.membership.role === "private_customer") {
+    throw new AccessError(403, "DEALER_ACCESS_REQUIRED");
+  }
+  if (context.membership.role !== "admin") {
+    await requireDealerPermission(requestHeaders, companyId, "company:read");
+  }
   const contact = await getCompanyContact(context.company.id);
+  const billing = context.membership.role === "admin"
+    ? await requireDealerAdminForBilling(requestHeaders, companyId).then(() =>
+        getCompanyBillingSummary(context.company.id),
+      )
+    : null;
   return (
     <section aria-labelledby="company-title">
       <p className="text-sm font-semibold text-[var(--primary)]">
@@ -42,10 +55,15 @@ export default async function CompanyPage() {
         />
       </dl>
       {context.membership.role === "admin" ? (
-        <CompanyContactForm
-          email={contact.contactEmail}
-          phone={contact.contactPhone ?? ""}
-        />
+        <>
+          {billing?.canAccess ? (
+            <CompanyContactForm
+              email={contact.contactEmail}
+              phone={contact.contactPhone ?? ""}
+            />
+          ) : null}
+          {billing ? <CompanyBillingActions summary={billing} /> : null}
+        </>
       ) : null}
     </section>
   );

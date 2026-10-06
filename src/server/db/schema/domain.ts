@@ -74,6 +74,28 @@ export const questionStatus = pgEnum("listing_question_status", [
   "hidden",
   "removed",
 ]);
+export const stripeBillingStatus = pgEnum("stripe_billing_status", [
+  "none",
+  "active",
+  "past_due",
+  "unpaid",
+  "canceled",
+]);
+export const billingOverride = pgEnum("billing_override", [
+  "manual_block",
+  "manual_premium",
+]);
+export const billingSyncStatus = pgEnum("billing_sync_status", [
+  "synced",
+  "pending",
+  "syncing",
+  "failed",
+]);
+export const stripeCheckoutStatus = pgEnum("stripe_checkout_status", [
+  "open",
+  "complete",
+  "expired",
+]);
 
 export const accountApplication = pgTable(
   "account_applications",
@@ -176,6 +198,60 @@ export const companyMembership = pgTable(
     index("company_memberships_user_idx").on(table.userId),
   ],
 );
+
+/** One server-owned billing/access aggregate per dealer company. */
+export const companySubscription = pgTable(
+  "company_subscriptions",
+  {
+    companyId: uuid("company_id")
+      .primaryKey()
+      .references(() => company.id, { onDelete: "cascade" }),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 120 }).unique(),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 120 }).unique(),
+    stripeExtraItemId: varchar("stripe_extra_item_id", { length: 120 }),
+    stripeStatus: stripeBillingStatus("stripe_status").notNull().default("none"),
+    stripeLastEventCreated: integer("stripe_last_event_created").notNull().default(0),
+    stripePeriodEnd: timestamp("stripe_period_end", { withTimezone: true }),
+    stripeCheckoutSessionId: varchar("stripe_checkout_session_id", { length: 120 }),
+    stripeCheckoutSessionUrl: text("stripe_checkout_session_url"),
+    stripeCheckoutExpiresAt: timestamp("stripe_checkout_expires_at", { withTimezone: true }),
+    stripeCheckoutStatus: stripeCheckoutStatus("stripe_checkout_status"),
+    stripeCheckoutGeneration: integer("stripe_checkout_generation").notNull().default(0),
+    freeAccessStartsAt: timestamp("free_access_starts_at", { withTimezone: true }),
+    freeAccessEndsAt: timestamp("free_access_ends_at", { withTimezone: true }),
+    freeGrantedByUserId: text("free_granted_by_user_id").references(() => user.id, { onDelete: "restrict" }),
+    freeGrantedAt: timestamp("free_granted_at", { withTimezone: true }),
+    freeReason: varchar("free_reason", { length: 500 }),
+    override: billingOverride("override"),
+    overrideReason: varchar("override_reason", { length: 500 }),
+    overrideByUserId: text("override_by_user_id").references(() => user.id, { onDelete: "restrict" }),
+    overrideAt: timestamp("override_at", { withTimezone: true }),
+    seatSyncStatus: billingSyncStatus("seat_sync_status").notNull().default("synced"),
+    seatSyncGeneration: integer("seat_sync_generation").notNull().default(0),
+    seatSyncAttempts: integer("seat_sync_attempts").notNull().default(0),
+    lastSyncedSeatQuantity: integer("last_synced_seat_quantity").notNull().default(0),
+    seatSyncLastError: varchar("seat_sync_last_error", { length: 160 }),
+    seatSyncUpdatedAt: timestamp("seat_sync_updated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check("company_subscriptions_free_window", sql`${table.freeAccessEndsAt} IS NULL OR (${table.freeAccessStartsAt} IS NOT NULL AND ${table.freeAccessEndsAt} > ${table.freeAccessStartsAt})`),
+    check("company_subscriptions_sync_attempts_nonnegative", sql`${table.seatSyncAttempts} >= 0`),
+    check("company_subscriptions_sync_generation_nonnegative", sql`${table.seatSyncGeneration} >= 0`),
+    check("company_subscriptions_event_created_nonnegative", sql`${table.stripeLastEventCreated} >= 0`),
+    check("company_subscriptions_checkout_generation_nonnegative", sql`${table.stripeCheckoutGeneration} >= 0`),
+    check("company_subscriptions_seat_quantity_nonnegative", sql`${table.lastSyncedSeatQuantity} >= 0`),
+    index("company_subscriptions_sync_idx").on(table.seatSyncStatus, table.seatSyncUpdatedAt),
+  ],
+);
+
+/** Stripe retries events; insertion of this ID is the idempotency boundary. */
+export const processedStripeEvent = pgTable("processed_stripe_events", {
+  eventId: varchar("event_id", { length: 255 }).primaryKey(),
+  eventType: varchar("event_type", { length: 120 }).notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 /** Internal platform authority, deliberately separate from dealer-company roles. */
 export const platformAdmin = pgTable("platform_admins", {

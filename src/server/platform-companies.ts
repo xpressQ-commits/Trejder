@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
-import { and, asc, count, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, or, sql } from "drizzle-orm";
 import type { Role } from "@/domain/authorization";
 import type { MembershipState } from "@/domain/membership";
 import { getDb } from "@/server/db";
-import { account, auditLog, company, companyMembership, platformAdmin, user } from "@/server/db/schema";
+import { account, auditLog, company, companyMembership, companySubscription, platformAdmin, user } from "@/server/db/schema";
 import { AccessError, normalizeEmail } from "@/server/security";
+import { markSeatSyncPending } from "@/server/billing";
+import { calculateBillableSeats, resolveSubscriptionAccess, type BillingOverride, type StripeBillingState } from "@/domain/subscription";
 
 export async function listPlatformCompanies() {
   return getDb().select({
@@ -22,6 +24,41 @@ export async function listPlatformCompanies() {
     ))
     .groupBy(company.id)
     .orderBy(asc(company.legalName));
+}
+
+export async function listPlatformCompaniesPage(input: { query?: string; page?: number; pageSize?: number }) {
+  const page = Number.isSafeInteger(input.page) && input.page! > 0 ? input.page! : 1;
+  const pageSize = Number.isSafeInteger(input.pageSize) ? Math.min(Math.max(input.pageSize!, 1), 100) : 25;
+  const raw = input.query?.trim().slice(0, 100) ?? "";
+  const escapedText = raw.toLocaleLowerCase("sv-SE").replace(/[\\%_]/g, "\\$&");
+  const digits = raw.replace(/\D/g, "").slice(0, 20);
+  const search = raw ? or(
+    sql`lower(${company.legalName}) LIKE ${`%${escapedText}%`} ESCAPE '\\'`,
+    ...(digits ? [sql`regexp_replace(${company.organizationNumber}, '[^0-9]', '', 'g') LIKE ${`%${digits}%`}`,
+      sql`regexp_replace(coalesce(${company.contactPhone}, ''), '[^0-9]', '', 'g') LIKE ${`%${digits}%`}`] : []),
+  ) : undefined;
+  const where = and(eq(company.kind, "dealer"), search);
+  const [totalRow] = await getDb().select({ value: count() }).from(company).where(where);
+  const rows = await getDb().select({
+    id: company.id, legalName: company.legalName, organizationNumber: company.organizationNumber,
+    contactEmail: company.contactEmail, contactPhone: company.contactPhone, createdAt: company.createdAt,
+    activeUserCount: count(companyMembership.id),
+    stripeStatus: companySubscription.stripeStatus, stripePeriodEnd: companySubscription.stripePeriodEnd,
+    freeAccessEndsAt: companySubscription.freeAccessEndsAt, override: companySubscription.override,
+    stripeCustomerId: companySubscription.stripeCustomerId,
+  }).from(company)
+    .leftJoin(companyMembership, and(eq(companyMembership.companyId, company.id), eq(companyMembership.status, "active")))
+    .leftJoin(companySubscription, eq(companySubscription.companyId, company.id))
+    .where(where).groupBy(company.id, companySubscription.companyId)
+    .orderBy(asc(company.legalName), desc(company.createdAt))
+    .limit(pageSize).offset((page - 1) * pageSize);
+  return {
+    companies: rows.map((row) => {
+      const access = resolveSubscriptionAccess({ override: (row.override ?? null) as BillingOverride, freeAccessEndsAt: row.freeAccessEndsAt, stripeState: (row.stripeStatus ?? "none") as StripeBillingState });
+      return { ...row, ...access, ...calculateBillableSeats(row.activeUserCount), hasStripeCustomer: Boolean(row.stripeCustomerId) };
+    }),
+    page, pageSize, total: totalRow.value, totalPages: Math.max(1, Math.ceil(totalRow.value / pageSize)), query: raw,
+  };
 }
 
 export async function createPlatformCompany(input: {
@@ -140,6 +177,7 @@ export async function createPlatformCompanyMember(input: {
     const [membership] = await tx.insert(companyMembership).values({
       companyId: input.companyId, userId, role: input.role, status: "active",
     }).returning();
+    await markSeatSyncPending(input.companyId, tx);
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
       actorCompanyId: input.companyId,
@@ -196,6 +234,7 @@ export async function createPlatformUser(input: {
       await tx.insert(companyMembership).values({
         companyId: targetCompanyId!, userId, role: input.authority, status: "active",
       });
+      await markSeatSyncPending(targetCompanyId!, tx);
     }
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
@@ -246,6 +285,7 @@ export async function updatePlatformCompanyMembership(input: {
         status: updated.status,
       },
     });
+    if (target.status !== updated.status) await markSeatSyncPending(input.companyId, tx);
     return updated;
   });
 }

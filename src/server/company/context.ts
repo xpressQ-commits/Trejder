@@ -5,6 +5,7 @@ import { company, companyMembership } from "@/server/db/schema";
 import { hasPermission, type Permission, type Role } from "@/domain/authorization";
 import { selectActiveCompany } from "@/domain/company-context";
 import { AccessError } from "@/server/security";
+import { getCompanySubscriptionAccess } from "@/server/billing";
 
 export const ACTIVE_COMPANY_COOKIE = "trejder_company";
 
@@ -70,6 +71,10 @@ export async function requireCompanyPermission(
 ): Promise<ActiveCompanyContext> {
   const context = await requireActiveCompanyContext(headers, selectedCompanyId);
   if (!hasPermission(context.membership.role, permission)) throw new AccessError(403, "FORBIDDEN");
+  if (context.company.kind === "dealer") {
+    const subscription = await getCompanySubscriptionAccess(context.company.id);
+    if (!subscription.canAccess) throw new AccessError(403, "SUBSCRIPTION_REQUIRED");
+  }
   return context;
 }
 
@@ -81,6 +86,15 @@ export async function requireDealerPermission(
   const context = await requireCompanyPermission(headers, selectedCompanyId, permission);
   if (context.company.kind !== "dealer" || context.membership.role === "private_customer") {
     throw new AccessError(403, "DEALER_ACCESS_REQUIRED");
+  }
+  return context;
+}
+
+/** Billing/remediation deliberately checks membership and ADMIN role, but bypasses the subscription gate. */
+export async function requireDealerAdminForBilling(headers: Headers, selectedCompanyId: string | null) {
+  const context = await requireActiveCompanyContext(headers, selectedCompanyId);
+  if (context.company.kind !== "dealer" || context.membership.role !== "admin" || !hasPermission(context.membership.role, "company:manage")) {
+    throw new AccessError(403, "DEALER_ADMIN_REQUIRED");
   }
   return context;
 }

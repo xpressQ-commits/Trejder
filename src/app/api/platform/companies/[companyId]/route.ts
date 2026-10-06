@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requirePlatformAdmin } from "@/server/platform-admin";
 import { updatePlatformCompany } from "@/server/platform-companies";
 import { AccessError, assertSameOrigin, errorResponse } from "@/server/security";
+import { getPlatformCompanyBillingDetail } from "@/server/billing";
 
 const updateInput = z.object({
   legalName: z.string().trim().min(1).max(200).optional(),
@@ -9,6 +10,15 @@ const updateInput = z.object({
   contactEmail: z.email().max(320).optional(),
   status: z.enum(["active", "suspended"]).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0);
+
+export async function GET(request: Request, route: { params: Promise<{ companyId: string }> }) {
+  try {
+    await requirePlatformAdmin(request.headers);
+    const { companyId } = await route.params;
+    if (!z.uuid().safeParse(companyId).success) throw new AccessError(404, "COMPANY_NOT_FOUND");
+    return Response.json(await getPlatformCompanyBillingDetail(companyId));
+  } catch (error) { return errorResponse(error); }
+}
 
 export async function PATCH(request: Request, route: { params: Promise<{ companyId: string }> }) {
   try {

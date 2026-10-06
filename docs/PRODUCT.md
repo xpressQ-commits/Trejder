@@ -33,17 +33,21 @@ Dealer onboarding remains approval-based. A public applicant may submit contact 
 - A seller may accept any valid bid, not necessarily the highest.
 - One listing can create at most one match.
 - Only the matched seller and buyer learn each other's identity and contact details.
-- Target dealer subscription: 699 SEK excluding VAT per company/month.
-- Accepted dealer match fee: 499 SEK excluding VAT for seller and 499 SEK excluding VAT for buyer.
-- Payments and invoicing are not part of the current implementation.
+- Trejder Premium costs 699 SEK excluding VAT per dealer company/month and includes two active dealer users. Each additional active membership costs 199 SEK excluding VAT/month. Suspended/revoked memberships and pending invitations do not count.
+- The intended future accepted dealer match fee is 899 SEK excluding VAT for each dealer side. Charging it remains out of scope until the match-payment phase; the current runtime match snapshot policy is unchanged.
+- Dealer access is Gratis (time-limited), Premium or Obetald. Billing uses Stripe-hosted Checkout and Customer Portal; Trejder never collects card details.
 
 ## Private sellers
 
 A verified `PRIVATE_CUSTOMER` may publish and manage only their own vehicles, receive dealer bids, answer public listing questions, exchange bid-gated messages and accept one bid. Private customers cannot browse the marketplace, bid, buy, manage dealer companies or access dealer-only routes. Dealer and seller identity remains hidden from the counterparty until a bid is accepted.
 
+## Phase 3.5 subscription access
+
+The server is authoritative for both membership and subscription access. Manual block, manual Premium, active free access and Stripe state are evaluated in that precedence order. A Stripe webhook cannot erase a manual decision. Free access has an explicit end instant and expires to Obetald unless a lower-precedence active Stripe subscription applies. Gratis cannot be granted while a live Stripe subscription exists, preventing accidental parallel charging; the subscription must first be ended in Stripe.
+
 ## Current non-goals
 
-No vehicle registry integration, CRM, accounting, Fortnox, Blocket, inventory/ERP, financing, warranties, automated valuation, AI descriptions, chart dashboards or native apps.
+No vehicle registry integration, CRM, accounting, Fortnox, Blocket, inventory/ERP, financing, warranties, automated valuation, AI descriptions, chart dashboards, native apps, transaction charging, coupons, credits, annual plans or custom card collection.
 
 ## Product language and units
 

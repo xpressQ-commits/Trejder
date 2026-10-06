@@ -8,6 +8,7 @@ import {
 import { getDb } from "@/server/db";
 import { auditLog, company, companyMembership, user } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
+import { markSeatSyncPending } from "@/server/billing";
 
 export async function listCompanyMembers(companyId: string) {
   return getDb().select({
@@ -65,5 +66,6 @@ export async function updateCompanyMembership(input: {
       aggregateId: target.id,
       metadata: { previousRole: target.role, previousStatus: target.status, role: nextRole, status: nextStatus },
     });
+    if (target.status !== nextStatus) await markSeatSyncPending(input.companyId, tx);
   });
 }
