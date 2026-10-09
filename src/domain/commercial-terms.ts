@@ -13,6 +13,17 @@ const DEALER_V1 = {
 } as const satisfies MatchFeeSnapshot;
 
 /** Server-owned policy. Never construct fee snapshots from request data. */
-export function currentDealerMatchFees(): MatchFeeSnapshot {
-  return DEALER_V1;
+export function currentDealerMatchFees(input?: {
+  sellerBillingExempt?: boolean;
+  buyerBillingExempt?: boolean;
+}): MatchFeeSnapshot {
+  return {
+    ...DEALER_V1,
+    sellerFeeExVatOre: input?.sellerBillingExempt
+      ? 0
+      : DEALER_V1.sellerFeeExVatOre,
+    buyerFeeExVatOre: input?.buyerBillingExempt
+      ? 0
+      : DEALER_V1.buyerFeeExVatOre,
+  };
 }

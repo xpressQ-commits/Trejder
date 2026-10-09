@@ -7,6 +7,7 @@ import {
   gt,
   ilike,
   inArray,
+  isNull,
   isNotNull,
   lt,
   or,
@@ -34,7 +35,7 @@ export type MarketplaceListingSummaryDto = {
   otherEquipment: string | null;
   deductibleVat: boolean;
   publishedAt: Date;
-  expiresAt: Date;
+  expiresAt: Date | null;
   isOwnListing: boolean;
   images: MarketplaceImageDto[];
 };
@@ -89,7 +90,7 @@ type MarketplaceRow = {
   otherEquipment: string | null;
   deductibleVat: boolean;
   publishedAt: Date;
-  expiresAt: Date;
+  expiresAt: Date | null;
 };
 
 function toDto(
@@ -152,8 +153,10 @@ export async function listMarketplaceListings(input: {
   const filters: SQL[] = [
     eq(vehicleListing.status, "active"),
     isNotNull(vehicleListing.publishedAt),
-    isNotNull(vehicleListing.expiresAt),
-    gt(vehicleListing.expiresAt, new Date()),
+    or(
+      isNull(vehicleListing.expiresAt),
+      gt(vehicleListing.expiresAt, new Date()),
+    )!,
   ];
   const search = input.search?.trim();
   if (search) {
@@ -239,8 +242,10 @@ export async function getMarketplaceListing(
         eq(vehicleListing.id, listingId),
         eq(vehicleListing.status, "active"),
         isNotNull(vehicleListing.publishedAt),
-        isNotNull(vehicleListing.expiresAt),
-        gt(vehicleListing.expiresAt, new Date()),
+        or(
+          isNull(vehicleListing.expiresAt),
+          gt(vehicleListing.expiresAt, new Date()),
+        ),
       ),
     )
     .limit(1);
@@ -284,8 +289,10 @@ export async function readMarketplaceListingImage(input: {
         ]),
         eq(vehicleListing.status, "active"),
         isNotNull(vehicleListing.publishedAt),
-        isNotNull(vehicleListing.expiresAt),
-        gt(vehicleListing.expiresAt, new Date()),
+        or(
+          isNull(vehicleListing.expiresAt),
+          gt(vehicleListing.expiresAt, new Date()),
+        ),
       ),
     )
     .limit(1);

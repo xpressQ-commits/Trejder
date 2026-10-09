@@ -20,9 +20,11 @@ type PublishProgress = { percent: number; title: string; detail: string };
 export function VehicleListingForm({
   listing,
   canMutate = true,
+  allowUnlimitedPublication = false,
 }: {
   listing?: OwnListing;
   canMutate?: boolean;
+  allowUnlimitedPublication?: boolean;
 }) {
   const router = useRouter();
   const [model, setModel] = useState(
@@ -42,7 +44,7 @@ export function VehicleListingForm({
   );
   const [comment, setComment] = useState(listing?.shortComment ?? "");
   const [vat, setVat] = useState(listing?.deductibleVat ?? false);
-  const [publicationHours, setPublicationHours] = useState(
+  const [publicationHours, setPublicationHours] = useState<number | null>(
     listing?.publicationHours ?? 48,
   );
   const [draftId, setDraftId] = useState(listing?.id);
@@ -56,7 +58,9 @@ export function VehicleListingForm({
   >({});
   const [publishProgress, setPublishProgress] = useState<PublishProgress>();
 
-  const immutable = currentListing?.status === "active";
+  const immutable =
+    currentListing?.status === "active" ||
+    currentListing?.status === "inactive";
   const terminal =
     currentListing?.status === "withdrawn" ||
     currentListing?.status === "matched";
@@ -430,8 +434,14 @@ export function VehicleListingForm({
         Publiceringstid
         <select
           aria-label="Publiceringstid"
-          value={publicationHours}
-          onChange={(event) => setPublicationHours(Number(event.target.value))}
+          value={publicationHours === null ? "unlimited" : publicationHours}
+          onChange={(event) =>
+            setPublicationHours(
+              event.target.value === "unlimited"
+                ? null
+                : Number(event.target.value),
+            )
+          }
           disabled={!editable || immutable}
           className={inputClassName}
         >
@@ -439,6 +449,9 @@ export function VehicleListingForm({
           <option value={72}>3 dagar</option>
           <option value={96}>4 dagar</option>
           <option value={120}>5 dagar</option>
+          {allowUnlimitedPublication ? (
+            <option value="unlimited">Obegränsad</option>
+          ) : null}
         </select>
         <span className="mt-1 block text-xs font-normal text-[var(--muted)]">
           Annonsen tas automatiskt bort från marknaden när tiden löper ut.
@@ -565,7 +578,8 @@ export function VehicleListingForm({
           >
             {pendingAction === "save"
               ? "Sparar…"
-              : currentListing?.status === "active"
+              : currentListing?.status === "active" ||
+                  currentListing?.status === "inactive"
                 ? "Spara korrigeringar"
                 : "Spara utkast"}
           </button>

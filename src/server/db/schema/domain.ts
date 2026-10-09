@@ -58,6 +58,7 @@ export const bidStatus = pgEnum("bid_status", [
   "withdrawn",
   "accepted",
   "lost",
+  "expired",
 ]);
 export const dealStatus = pgEnum("deal_status", [
   "accepted",
@@ -137,6 +138,7 @@ export const company = pgTable("companies", {
     .unique(),
   contactEmail: varchar("contact_email", { length: 320 }).notNull(),
   contactPhone: varchar("contact_phone", { length: 40 }),
+  isPlatformOwner: boolean("is_platform_owner").notNull().default(false),
   kind: companyKind("kind").notNull().default("dealer"),
   status: companyStatus("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -373,9 +375,8 @@ export const vehicleListing = pgTable(
     deductibleVat: boolean("deductible_vat").notNull(),
     status: listingStatus("status").notNull().default("draft"),
     version: integer("version").notNull().default(1),
-    publicationDurationHours: integer("publication_duration_hours")
-      .notNull()
-      .default(48),
+    publicationDurationHours: integer("publication_duration_hours").default(48),
+    publicationRound: integer("publication_round").notNull().default(0),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -402,6 +403,10 @@ export const vehicleListing = pgTable(
       sql`${table.mileageKm} <= 2000000 AND ${table.mileageKm} % 10 = 0`,
     ),
     check("vehicle_listings_version_positive", sql`${table.version} > 0`),
+    check(
+      "vehicle_listings_publication_round_nonnegative",
+      sql`${table.publicationRound} >= 0`,
+    ),
     check(
       "vehicle_listings_publication_duration_range",
       sql`${table.publicationDurationHours} BETWEEN 48 AND 120`,
@@ -476,6 +481,7 @@ export const bid = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
     anonymousNumber: integer("anonymous_number").notNull(),
+    publicationRound: integer("publication_round").notNull().default(1),
     amountOre: integer("amount_ore").notNull(),
     status: bidStatus("status").notNull().default("active"),
     version: integer("version").notNull().default(1),
@@ -493,9 +499,10 @@ export const bid = pgTable(
       foreignColumns: [vehicleListing.id, vehicleListing.sellerCompanyId],
       name: "bids_listing_and_seller_fk",
     }).onDelete("restrict"),
-    uniqueIndex("bids_listing_bidder_uq").on(
+    uniqueIndex("bids_listing_bidder_round_uq").on(
       table.listingId,
       table.bidderCompanyId,
+      table.publicationRound,
     ),
     uniqueIndex("bids_listing_alias_uq").on(
       table.listingId,
@@ -516,6 +523,10 @@ export const bid = pgTable(
     ),
     check("bids_amount_positive", sql`${table.amountOre} > 0`),
     check("bids_alias_positive", sql`${table.anonymousNumber} > 0`),
+    check(
+      "bids_publication_round_positive",
+      sql`${table.publicationRound} > 0`,
+    ),
     check("bids_version_positive", sql`${table.version} > 0`),
   ],
 );

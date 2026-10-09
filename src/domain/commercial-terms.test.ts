@@ -9,4 +9,25 @@ describe("dealer commercial terms", () => {
     expect(fees.sellerFeeExVatOre + fees.buyerFeeExVatOre).toBe(99_800);
     expect(Number.isInteger(fees.sellerFeeExVatOre)).toBe(true);
   });
+  it("exempts only the platform-owner party", () => {
+    expect(currentDealerMatchFees({ sellerBillingExempt: true })).toMatchObject(
+      {
+        sellerFeeExVatOre: 0,
+        buyerFeeExVatOre: 49_900,
+      },
+    );
+    expect(currentDealerMatchFees({ buyerBillingExempt: true })).toMatchObject({
+      sellerFeeExVatOre: 49_900,
+      buyerFeeExVatOre: 0,
+    });
+    expect(
+      currentDealerMatchFees({
+        sellerBillingExempt: true,
+        buyerBillingExempt: true,
+      }),
+    ).toMatchObject({
+      sellerFeeExVatOre: 0,
+      buyerFeeExVatOre: 0,
+    });
+  });
 });

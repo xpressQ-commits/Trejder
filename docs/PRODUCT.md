@@ -10,6 +10,8 @@ Publishing stays deliberately short:
 
 `Vehicle model -> model year (1950 through next year) -> mileage -> short comment -> deductible VAT yes/no -> publication duration (48–120 hours) -> 1–5 images -> publish`
 
+Expired listings move to the seller's **Inaktiva** view. They can be republished as the same listing with a newly selected duration; this starts a new bid round and never reactivates bids from an earlier round.
+
 There is no automatic vehicle lookup. Never invent specifications from a registration number or model.
 
 Phase 2 implements this as one Swedish, mobile-first form. Images are checked server-side for visible registration plates; confident detections are blurred before publication. The dealer's own `/app/bilar` area contains only its active listings, drafts and withdrawn listings; it is not a marketplace feed.
@@ -34,6 +36,7 @@ Dealer onboarding remains approval-based. A public applicant may submit contact 
 - One listing can create at most one match.
 - Only the matched seller and buyer learn each other's identity and contact details.
 - Trejder Premium costs 699 SEK excluding VAT per dealer company/month and includes two active dealer users. Each additional active membership costs 199 SEK excluding VAT/month. Suspended/revoked memberships and pending invitations do not count.
+- PWT Invest AB is Trejder's protected platform-owner company. It is permanently exempt from subscriptions, seat charges and its own side of transaction fees, and may publish without an expiry. A normal counterparty remains subject to its normal terms.
 - The intended future accepted dealer match fee is 899 SEK excluding VAT for each dealer side. Charging it remains out of scope until the match-payment phase; the current runtime match snapshot policy is unchanged.
 - Dealer access is Gratis (time-limited), Premium or Obetald. Billing uses Stripe-hosted Checkout and Customer Portal; Trejder never collects card details.
 
@@ -49,7 +52,7 @@ An active dealer membership may always sign in, browse the marketplace and open 
 
 ## Current non-goals
 
-No vehicle registry integration, CRM, accounting, Fortnox, Blocket, inventory/ERP, financing, warranties, automated valuation, AI descriptions, chart dashboards, native apps, transaction charging, coupons, credits, annual plans or custom card collection.
+No vehicle registry integration, CRM, accounting, Fortnox, Blocket, inventory/ERP, financing, warranties, automated valuation, AI descriptions, chart dashboards, native apps, transaction charging, coupons, credits, annual plans or custom card collection. The platform-owner fee exemption is a policy snapshot foundation, not transaction charging.
 
 ## Product language and units
 

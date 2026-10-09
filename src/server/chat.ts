@@ -26,7 +26,7 @@ type ThreadRow = {
   id: string;
   matchId: string;
   bidId: string | null;
-  bidStatus: "active" | "withdrawn" | "accepted" | "lost" | null;
+  bidStatus: "active" | "withdrawn" | "accepted" | "lost" | "expired" | null;
   listingId: string;
   sellerCompanyId: string;
   buyerCompanyId: string;

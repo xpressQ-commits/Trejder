@@ -1,9 +1,7 @@
-export type SubscriptionBusinessStatus = "free" | "premium" | "unpaid";
+export type SubscriptionBusinessStatus =
+  "internal" | "free" | "premium" | "unpaid";
 export type SubscriptionSource =
-  | "stripe"
-  | "manual_override"
-  | "free_access"
-  | "none";
+  "stripe" | "manual_override" | "free_access" | "none" | "platform_owner";
 
 export type PlatformCompanySubscriptionSummary = {
   status: SubscriptionBusinessStatus;
@@ -17,6 +15,7 @@ export type PlatformCompanyListItem = {
   legalName: string;
   organizationNumber: string;
   contactPhone: string | null;
+  isPlatformOwner: boolean;
   activeUserCount: number;
   includedUserCount: number;
   extraBillableUserCount: number;
@@ -48,12 +47,14 @@ export type PlatformCompanyBillingDetail = PlatformCompanyListItem & {
 };
 
 const statusLabels: Record<SubscriptionBusinessStatus, string> = {
+  internal: "Trejder internkonto",
   free: "Gratis",
   premium: "Premium",
   unpaid: "Obetald",
 };
 
 const sourceLabels: Record<SubscriptionSource, string> = {
+  platform_owner: "Plattformsägare",
   stripe: "Stripe",
   manual_override: "Manuell override",
   free_access: "Fri åtkomst",

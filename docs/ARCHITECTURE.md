@@ -65,12 +65,15 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 - The signed `/api/stripe/webhook` reads the raw request body, verifies `STRIPE_WEBHOOK_SECRET`, and inserts the Stripe event ID before applying a business transition. Duplicate deliveries are no-ops. The Stripe endpoint subscribes to `checkout.session.completed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` and `invoice.payment_failed`.
 - Subscription lifecycle events also carry a persisted Stripe creation-time watermark; older deliveries cannot roll back newer state, and terminal cancellation wins ties.
 - `company_subscriptions` is the Trejder access projection and retry boundary. Membership transactions only mark seat sync pending; Stripe network calls occur afterwards and failures remain retryable without rolling back membership state.
+- A central company policy consumes the protected `is_platform_owner` database flag. Billing, Stripe, publication-duration and match-fee use cases all call this policy; presentation code cannot grant the exemption.
 - Each changed desired seat operation increments a persisted sync generation. Stripe idempotency keys use company, generation and desired quantity; retry attempts and error/status timestamps never rotate that key. Membership changes during `past_due` remain queued, and `invoice.paid` queues reconciliation before the account resumes normal billing.
 - A Railway cron invokes `POST /api/internal/billing/seat-sync` with `Authorization: Bearer $BILLING_SYNC_SECRET`; the endpoint drains bounded pending/failed sync rows. The random bearer value is separate from Stripe credentials.
 
 Authorized image reads go through a tenant-scoped application route. DTOs contain that route, never the underlying object key. Object keys are opaque values with 256 random bits and contain no tenant or listing identifier; the bucket remains private.
 
 Marketplace reads use dedicated allow-listed DTOs and fresh active-company authorization. Queries expose only active listings owned by other companies, use bounded cursor pagination, and never select seller identity. Marketplace image routes repeat the same active/non-owner predicate at read time.
+
+Expiry is query-derived from the database clock boundary (`expires_at`) rather than a background transition. Marketplace and mutation predicates exclude timed-out listings immediately; the seller projection labels them inactive. A nullable expiry is reserved server-side for the platform-owner company. Publication-round numbers isolate bids when the same listing is republished.
 
 ## Configuration
 

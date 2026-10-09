@@ -36,6 +36,39 @@ afterEach(() => {
 });
 
 describe("VehicleListingForm image selection", () => {
+  it("shows unlimited publication only for the platform-owner context", () => {
+    const ordinary = render(<VehicleListingForm listing={ownListing([])} />);
+    expect(
+      screen.queryByRole("option", { name: "Obegränsad" }),
+    ).not.toBeInTheDocument();
+    ordinary.unmount();
+
+    render(
+      <VehicleListingForm listing={ownListing([])} allowUnlimitedPublication />,
+    );
+    expect(
+      screen.getByRole("option", { name: "Obegränsad" }),
+    ).toBeInTheDocument();
+  });
+
+  it("submits a null expiry duration only from the platform-owner option", async () => {
+    const listing = ownListing([]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        listing: { ...listing, publicationHours: null },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VehicleListingForm listing={listing} allowUnlimitedPublication />);
+    fireEvent.change(screen.getByLabelText("Publiceringstid"), {
+      target: { value: "unlimited" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Spara utkast" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.publicationHours).toBeNull();
+  });
+
   it("selects, removes and submits multiple structured equipment values", async () => {
     const listing = ownListing([]);
     const fetchMock = vi.fn().mockResolvedValue(

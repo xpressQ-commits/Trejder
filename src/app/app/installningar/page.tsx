@@ -138,6 +138,7 @@ export default async function SettingsPage({
           <MemberAdmin
             initialMembers={members}
             initialInvitations={invitations}
+            billingExempt={billing.billingExempt}
           />
         </section>
       ) : null}

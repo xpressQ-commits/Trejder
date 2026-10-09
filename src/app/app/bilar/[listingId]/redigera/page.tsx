@@ -35,6 +35,7 @@ export default async function EditVehiclePage({
         <VehicleListingForm
           listing={listing}
           canMutate={context.membership.role !== "viewer"}
+          allowUnlimitedPublication={context.company.isPlatformOwner}
         />
       </div>
     </section>

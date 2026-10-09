@@ -13,7 +13,7 @@ export type MarketplaceListingSummary = {
   otherEquipment: string | null;
   deductibleVat: boolean;
   publishedAt: string;
-  expiresAt: string;
+  expiresAt: string | null;
   isOwnListing: boolean;
   images: MarketplaceImage[];
 };

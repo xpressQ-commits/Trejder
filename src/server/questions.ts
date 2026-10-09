@@ -72,8 +72,7 @@ export async function askListingQuestion(input: {
     if (
       !listing ||
       listing.status !== "active" ||
-      !listing.expiresAt ||
-      listing.expiresAt <= new Date()
+      (listing.expiresAt !== null && listing.expiresAt <= new Date())
     )
       throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
     if (listing.sellerCompanyId === input.authorCompanyId)
@@ -122,26 +121,22 @@ export async function askListingQuestion(input: {
       );
     pushRecipients = recipients.map(({ userId }) => userId);
     if (recipients.length)
-      await tx
-        .insert(notification)
-        .values(
-          recipients.map(({ userId }) => ({
-            recipientUserId: userId,
-            type: "question.received",
-            body: `Ny fråga från ${label(participant.anonymousNumber)}`,
-            resourceType: "listing",
-            resourceId: listing.id,
-          })),
-        );
-    await tx
-      .insert(auditLog)
-      .values({
-        actorUserId: input.actorUserId,
-        actorCompanyId: input.authorCompanyId,
-        action: "listing_question.created",
-        aggregateType: "listing_question",
-        aggregateId: created.id,
-      });
+      await tx.insert(notification).values(
+        recipients.map(({ userId }) => ({
+          recipientUserId: userId,
+          type: "question.received",
+          body: `Ny fråga från ${label(participant.anonymousNumber)}`,
+          resourceType: "listing",
+          resourceId: listing.id,
+        })),
+      );
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.authorCompanyId,
+      action: "listing_question.created",
+      aggregateType: "listing_question",
+      aggregateId: created.id,
+    });
     return created;
   });
   await sendPushToUsers(pushRecipients, {
@@ -207,26 +202,22 @@ export async function answerListingQuestion(input: {
       );
     pushRecipients = recipients.map(({ userId }) => userId);
     if (recipients.length)
-      await tx
-        .insert(notification)
-        .values(
-          recipients.map(({ userId }) => ({
-            recipientUserId: userId,
-            type: "question.answered",
-            body: "Säljaren har svarat på din fråga",
-            resourceType: "listing",
-            resourceId: input.listingId,
-          })),
-        );
-    await tx
-      .insert(auditLog)
-      .values({
-        actorUserId: input.actorUserId,
-        actorCompanyId: input.sellerCompanyId,
-        action: "listing_question.answered",
-        aggregateType: "listing_question",
-        aggregateId: question.id,
-      });
+      await tx.insert(notification).values(
+        recipients.map(({ userId }) => ({
+          recipientUserId: userId,
+          type: "question.answered",
+          body: "Säljaren har svarat på din fråga",
+          resourceType: "listing",
+          resourceId: input.listingId,
+        })),
+      );
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.sellerCompanyId,
+      action: "listing_question.answered",
+      aggregateType: "listing_question",
+      aggregateId: question.id,
+    });
     return updated;
   });
   await sendPushToUsers(pushRecipients, {

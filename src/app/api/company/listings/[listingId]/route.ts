@@ -1,5 +1,14 @@
-import { assertSameOrigin, AccessError, errorResponse } from "@/server/security";
-import { deleteDraft, getOwnListing, updateOwnListing } from "@/server/vehicles/listings";
+import {
+  assertSameOrigin,
+  AccessError,
+  errorResponse,
+} from "@/server/security";
+import { canUseUnlimitedListings } from "@/domain/company-policy";
+import {
+  deleteDraft,
+  getOwnListing,
+  updateOwnListing,
+} from "@/server/vehicles/listings";
 import {
   listingInputSchema,
   parseListingId,
@@ -13,15 +22,18 @@ export async function GET(
   try {
     const context = await requireListingContext(request, false);
     const listingId = parseListingId((await route.params).listingId);
-    return Response.json({ listing: await getOwnListing(context.company.id, listingId) });
+    return Response.json({
+      listing: await getOwnListing(context.company.id, listingId),
+    });
   } catch (error) {
     return errorResponse(error);
   }
 }
 
-const patchSchema = listingInputSchema.partial().strict().refine(
-  (value) => Object.keys(value).length > 0,
-);
+const patchSchema = listingInputSchema
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0);
 
 export async function PATCH(
   request: Request,
@@ -39,6 +51,7 @@ export async function PATCH(
         listingId,
         actorUserId: context.user.id,
         values: parsed.data,
+        allowUnlimitedPublication: canUseUnlimitedListings(context.company),
       }),
     });
   } catch (error) {

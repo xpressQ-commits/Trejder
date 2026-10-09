@@ -41,9 +41,11 @@ const statusLabels = {
 export function MemberAdmin({
   initialMembers,
   initialInvitations,
+  billingExempt = false,
 }: {
   initialMembers: Member[];
   initialInvitations: Invitation[];
+  billingExempt?: boolean;
 }) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [invitations, setInvitations] =
@@ -174,15 +176,18 @@ export function MemberAdmin({
           Bjud in användare
         </h3>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Två aktiva användare ingår. Varje ytterligare aktiv användare kostar
-          199 kr per månad exklusive moms.
+          {billingExempt
+            ? "Trejder internkonto har obegränsat antal användare utan extra kostnad."
+            : "Två aktiva användare ingår. Varje ytterligare aktiv användare kostar 199 kr per månad exklusive moms."}
         </p>
-        <p className="mt-2 text-sm font-medium">
-          {activeMembers} aktiva användare.{" "}
-          {activeMembers < 2
-            ? "Nästa aktiva användare ingår."
-            : "Nästa aktiva användare lägger till 199 kr/mån exkl. moms."}
-        </p>
+        {!billingExempt ? (
+          <p className="mt-2 text-sm font-medium">
+            {activeMembers} aktiva användare.{" "}
+            {activeMembers < 2
+              ? "Nästa aktiva användare ingår."
+              : "Nästa aktiva användare lägger till 199 kr/mån exkl. moms."}
+          </p>
+        ) : null}
         <form
           onSubmit={invite}
           className="mt-5 grid gap-4 sm:grid-cols-[1fr_12rem_auto] sm:items-end"

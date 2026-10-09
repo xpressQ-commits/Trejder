@@ -1,10 +1,24 @@
-import { and, asc, count, desc, eq, max, ne } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  max,
+  ne,
+  or,
+} from "drizzle-orm";
 import { currentDealerMatchFees } from "@/domain/commercial-terms";
+import { isBillingExempt } from "@/domain/company-policy";
 import { getDb } from "@/server/db";
 import {
   auditLog,
   bid,
   chatThread,
+  company,
   companyMembership,
   listingParticipantAlias,
   match,
@@ -63,6 +77,7 @@ export async function placeBid(input: {
         sellerCompanyId: vehicleListing.sellerCompanyId,
         status: vehicleListing.status,
         expiresAt: vehicleListing.expiresAt,
+        publicationRound: vehicleListing.publicationRound,
       })
       .from(vehicleListing)
       .where(eq(vehicleListing.id, input.listingId))
@@ -70,8 +85,7 @@ export async function placeBid(input: {
     if (
       !listing ||
       listing.status !== "active" ||
-      !listing.expiresAt ||
-      listing.expiresAt <= new Date()
+      (listing.expiresAt !== null && listing.expiresAt <= new Date())
     )
       throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
     if (listing.sellerCompanyId === input.bidderCompanyId)
@@ -107,6 +121,7 @@ export async function placeBid(input: {
         and(
           eq(bid.listingId, listing.id),
           eq(bid.bidderCompanyId, input.bidderCompanyId),
+          eq(bid.publicationRound, listing.publicationRound),
         ),
       )
       .for("update");
@@ -129,6 +144,7 @@ export async function placeBid(input: {
             bidderCompanyId: input.bidderCompanyId,
             placedByUserId: input.actorUserId,
             anonymousNumber: participant.anonymousNumber,
+            publicationRound: listing.publicationRound,
             amountOre: input.amountOre,
           })
           .returning();
@@ -175,10 +191,12 @@ export async function getOwnBid(listingId: string, bidderCompanyId: string) {
       updatedAt: bid.updatedAt,
     })
     .from(bid)
+    .innerJoin(vehicleListing, eq(vehicleListing.id, bid.listingId))
     .where(
       and(
         eq(bid.listingId, listingId),
         eq(bid.bidderCompanyId, bidderCompanyId),
+        eq(bid.publicationRound, vehicleListing.publicationRound),
       ),
     )
     .limit(1);
@@ -194,7 +212,7 @@ export async function listSellerBids(
       eq(vehicleListing.id, listingId),
       eq(vehicleListing.sellerCompanyId, sellerCompanyId),
     ),
-    columns: { id: true },
+    columns: { id: true, publicationRound: true },
   });
   if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
   const rows = await getDb()
@@ -207,7 +225,12 @@ export async function listSellerBids(
       updatedAt: bid.updatedAt,
     })
     .from(bid)
-    .where(eq(bid.listingId, listingId))
+    .where(
+      and(
+        eq(bid.listingId, listingId),
+        eq(bid.publicationRound, listing.publicationRound),
+      ),
+    )
     .orderBy(desc(bid.amountOre), asc(bid.createdAt));
   return rows.map(({ anonymousNumber, ...row }) => ({
     ...row,
@@ -224,6 +247,11 @@ export async function countSellerActiveBids(sellerCompanyId: string) {
       and(
         eq(vehicleListing.sellerCompanyId, sellerCompanyId),
         eq(bid.status, "active"),
+        eq(vehicleListing.status, "active"),
+        or(
+          isNull(vehicleListing.expiresAt),
+          gt(vehicleListing.expiresAt, new Date()),
+        ),
       ),
     );
   return result.value;
@@ -254,7 +282,10 @@ export async function acceptBid(input: {
       )
       .for("update");
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
-    if (listing.status !== "active")
+    if (
+      listing.status !== "active" ||
+      (listing.expiresAt !== null && listing.expiresAt <= new Date())
+    )
       throw new AccessError(409, "LISTING_NOT_ACTIVE");
     const [accepted] = await tx
       .select()
@@ -264,6 +295,7 @@ export async function acceptBid(input: {
           eq(bid.id, input.bidId),
           eq(bid.listingId, listing.id),
           eq(bid.listingSellerCompanyId, input.sellerCompanyId),
+          eq(bid.publicationRound, listing.publicationRound),
         ),
       )
       .for("update");
@@ -275,7 +307,24 @@ export async function acceptBid(input: {
       .where(eq(match.listingId, listing.id))
       .limit(1);
     if (alreadyMatched) throw new AccessError(409, "LISTING_ALREADY_MATCHED");
-    const fees = currentDealerMatchFees();
+    const parties = await tx
+      .select({ id: company.id, isPlatformOwner: company.isPlatformOwner })
+      .from(company)
+      .where(
+        inArray(company.id, [input.sellerCompanyId, accepted.bidderCompanyId]),
+      );
+    const fees = currentDealerMatchFees({
+      sellerBillingExempt: isBillingExempt(
+        parties.find((party) => party.id === input.sellerCompanyId) ?? {
+          isPlatformOwner: false,
+        },
+      ),
+      buyerBillingExempt: isBillingExempt(
+        parties.find((party) => party.id === accepted.bidderCompanyId) ?? {
+          isPlatformOwner: false,
+        },
+      ),
+    });
     const losingBids = await tx
       .select({ bidderCompanyId: bid.bidderCompanyId })
       .from(bid)
@@ -284,6 +333,7 @@ export async function acceptBid(input: {
           eq(bid.listingId, listing.id),
           ne(bid.id, accepted.id),
           eq(bid.status, "active"),
+          eq(bid.publicationRound, listing.publicationRound),
         ),
       );
     await tx
@@ -298,6 +348,7 @@ export async function acceptBid(input: {
           eq(bid.listingId, listing.id),
           ne(bid.id, accepted.id),
           eq(bid.status, "active"),
+          eq(bid.publicationRound, listing.publicationRound),
         ),
       );
     await tx

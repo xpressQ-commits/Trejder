@@ -1,4 +1,5 @@
-export type ListingStatus = "draft" | "active" | "withdrawn" | "matched";
+export type ListingStatus =
+  "draft" | "active" | "inactive" | "withdrawn" | "matched";
 export type ListingIdentifier = {
   kind: "registration" | "model";
   value: string;
@@ -29,7 +30,7 @@ export type OwnListing = {
   otherEquipment: string | null;
   deductibleVat: boolean;
   status: ListingStatus;
-  publicationHours: number;
+  publicationHours: number | null;
   createdAt: string;
   publishedAt: string | null;
   expiresAt: string | null;
@@ -39,6 +40,7 @@ export type OwnListing = {
 export const listingStatusLabel: Record<ListingStatus, string> = {
   draft: "Utkast",
   active: "Aktiv",
+  inactive: "Inaktiv",
   withdrawn: "Avslutad",
   matched: "Matchad",
 };
@@ -56,7 +58,7 @@ export function serializeOwnListing(listing: {
   otherEquipment: string | null;
   deductibleVat: boolean;
   status: ListingStatus;
-  publicationHours: number;
+  publicationHours: number | null;
   createdAt: Date;
   publishedAt: Date | null;
   expiresAt: Date | null;

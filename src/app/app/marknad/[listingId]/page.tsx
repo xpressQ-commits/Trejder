@@ -25,7 +25,7 @@ export default async function MarketplaceListingPage({
       listing={{
         ...listing,
         publishedAt: listing.publishedAt.toISOString(),
-        expiresAt: listing.expiresAt.toISOString(),
+        expiresAt: listing.expiresAt?.toISOString() ?? null,
       }}
       canBid={context.membership.role !== "viewer"}
       hasSubscriptionAccess={subscription.canAccess}

@@ -8,5 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function OwnVehiclesPage() {
   const context = await getCurrentCompanyContext();
   const listings = await listOwnListings(context.company.id);
-  return <OwnListings canMutate={context.membership.role !== "viewer"} initialListings={listings.map(serializeOwnListing)} />;
+  return (
+    <OwnListings
+      canMutate={context.membership.role !== "viewer"}
+      allowUnlimitedPublication={context.company.isPlatformOwner}
+      initialListings={listings.map(serializeOwnListing)}
+    />
+  );
 }

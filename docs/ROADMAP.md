@@ -42,6 +42,10 @@ Create/update/withdraw bid, listing-scoped bidder aliases and seller bid view. S
 
 Transactional acceptance of any valid bid, concurrency/idempotency tests, immutable commercial snapshots and bilateral identity reveal. Payments remain out of scope.
 
+## Listing lifecycle and platform-owner policy (implemented in code)
+
+Expired listings are separated into the seller's Inaktiva view and may be republished as the same listing into a new bid round. Previous-round bids remain terminal. The protected PWT Invest AB platform-owner company may publish without an expiry and is centrally exempt from subscription, extra-seat and its own side of match fees; a normal counterparty remains unchanged. Migration `0020` backfills the company by normalized organization number and adds the policy and publication-round fields.
+
 ## Phase 6 — Private sellers (approved)
 
 Verified private-customer onboarding, seller-only navigation and listings, anonymous public Q&A, dealer bidding, bid-gated anonymous messaging, transactional acceptance, matched-party identity reveal, retained-history deal chat and identity-safe notifications.

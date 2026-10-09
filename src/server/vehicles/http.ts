@@ -29,7 +29,13 @@ export const listingInputSchema = z
       .default([]),
     otherEquipment: z.string().max(500).nullable().optional(),
     deductibleVat: z.boolean(),
-    publicationHours: z.number().int().min(48).max(120),
+    publicationHours: z.union([
+      z.literal(48),
+      z.literal(72),
+      z.literal(96),
+      z.literal(120),
+      z.null(),
+    ]),
   })
   .strict();
 

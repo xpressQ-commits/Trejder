@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { and, count, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { stripeExtraUserQuantity } from "@/domain/subscription";
+import { isBillingExempt } from "@/domain/company-policy";
 import { countActiveCompanyMemberships } from "@/server/billing";
 import { getDb } from "@/server/db";
 import {
@@ -78,21 +79,23 @@ export function seatSyncIdempotencyKey(
 }
 
 async function ensureStripeCustomer(companyId: string, actorUserId: string) {
+  const [target] = await getDb()
+    .select({
+      legalName: company.legalName,
+      contactEmail: company.contactEmail,
+      isPlatformOwner: company.isPlatformOwner,
+    })
+    .from(company)
+    .where(and(eq(company.id, companyId), eq(company.kind, "dealer")))
+    .limit(1);
+  if (!target) throw new AccessError(404, "COMPANY_NOT_FOUND");
+  if (isBillingExempt(target)) throw new AccessError(409, "BILLING_EXEMPT");
   const [existing] = await getDb()
     .select({ stripeCustomerId: companySubscription.stripeCustomerId })
     .from(companySubscription)
     .where(eq(companySubscription.companyId, companyId))
     .limit(1);
   if (existing?.stripeCustomerId) return existing.stripeCustomerId;
-  const [target] = await getDb()
-    .select({
-      legalName: company.legalName,
-      contactEmail: company.contactEmail,
-    })
-    .from(company)
-    .where(and(eq(company.id, companyId), eq(company.kind, "dealer")))
-    .limit(1);
-  if (!target) throw new AccessError(404, "COMPANY_NOT_FOUND");
   const customer = await getStripeClient().customers.create(
     {
       name: target.legalName,
@@ -119,16 +122,14 @@ async function ensureStripeCustomer(companyId: string, actorUserId: string) {
         )
         .returning({ companyId: companySubscription.companyId });
     if (claimed.length)
-      await tx
-        .insert(auditLog)
-        .values({
-          actorUserId,
-          actorCompanyId: companyId,
-          action: "stripe.customer_created",
-          aggregateType: "company_subscription",
-          aggregateId: companyId,
-          metadata: { stripeCustomerId: customer.id },
-        });
+      await tx.insert(auditLog).values({
+        actorUserId,
+        actorCompanyId: companyId,
+        action: "stripe.customer_created",
+        aggregateType: "company_subscription",
+        aggregateId: companyId,
+        metadata: { stripeCustomerId: customer.id },
+      });
   });
   return customer.id;
 }
@@ -137,6 +138,7 @@ export async function createPremiumCheckout(
   companyId: string,
   actorUserId: string,
 ) {
+  await assertCompanyIsBillable(companyId);
   const [billing] = await getDb()
     .select()
     .from(companySubscription)
@@ -221,6 +223,7 @@ export async function createPremiumCheckout(
 }
 
 export async function createBillingPortal(companyId: string) {
+  await assertCompanyIsBillable(companyId);
   const [billing] = await getDb()
     .select({ stripeCustomerId: companySubscription.stripeCustomerId })
     .from(companySubscription)
@@ -361,23 +364,21 @@ export async function processStripeEvent(event: Stripe.Event) {
             updatedAt: new Date(),
           },
         });
-      await tx
-        .insert(auditLog)
-        .values({
-          actorCompanyId: companyId,
-          action:
-            event.type === "customer.subscription.created"
-              ? "stripe.subscription_linked"
-              : "stripe.subscription_status_changed",
-          aggregateType: "company_subscription",
-          aggregateId: companyId,
-          metadata: {
-            stripeSubscriptionId: subscription.id,
-            previousStripeStatus: before?.stripeStatus ?? "none",
-            newStripeStatus: status,
-            stripeEventId: event.id,
-          },
-        });
+      await tx.insert(auditLog).values({
+        actorCompanyId: companyId,
+        action:
+          event.type === "customer.subscription.created"
+            ? "stripe.subscription_linked"
+            : "stripe.subscription_status_changed",
+        aggregateType: "company_subscription",
+        aggregateId: companyId,
+        metadata: {
+          stripeSubscriptionId: subscription.id,
+          previousStripeStatus: before?.stripeStatus ?? "none",
+          newStripeStatus: status,
+          stripeEventId: event.id,
+        },
+      });
       return { replay: false as const, companyId };
     }
     if (
@@ -467,23 +468,21 @@ export async function processStripeEvent(event: Stripe.Event) {
           })
           .where(eq(companySubscription.companyId, companyId));
       }
-      await tx
-        .insert(auditLog)
-        .values({
-          actorCompanyId: companyId,
-          action:
-            event.type === "invoice.paid"
-              ? "stripe.invoice_paid"
-              : "stripe.invoice_payment_failed",
-          aggregateType: "company_subscription",
-          aggregateId: companyId,
-          metadata: {
-            stripeInvoiceId: invoice.id,
-            stripeEventId: event.id,
-            previousStripeStatus: before.stripeStatus,
-            newStripeStatus: nextStatus,
-          },
-        });
+      await tx.insert(auditLog).values({
+        actorCompanyId: companyId,
+        action:
+          event.type === "invoice.paid"
+            ? "stripe.invoice_paid"
+            : "stripe.invoice_payment_failed",
+        aggregateType: "company_subscription",
+        aggregateId: companyId,
+        metadata: {
+          stripeInvoiceId: invoice.id,
+          stripeEventId: event.id,
+          previousStripeStatus: before.stripeStatus,
+          newStripeStatus: nextStatus,
+        },
+      });
       return { replay: false as const, companyId };
     }
     return { replay: false as const, ignored: "unsupported" as const };
@@ -492,6 +491,12 @@ export async function processStripeEvent(event: Stripe.Event) {
 
 /** Retry-safe worker boundary; callers may invoke repeatedly after membership commits. */
 export async function syncCompanySeatQuantity(companyId: string) {
+  const [target] = await getDb()
+    .select({ isPlatformOwner: company.isPlatformOwner })
+    .from(company)
+    .where(eq(company.id, companyId))
+    .limit(1);
+  if (!target || isBillingExempt(target)) return { skipped: true as const };
   const [billing] = await getDb()
     .select()
     .from(companySubscription)
@@ -564,19 +569,17 @@ export async function syncCompanySeatQuantity(companyId: string) {
         )
         .returning({ companyId: companySubscription.companyId });
       if (updated.length)
-        await tx
-          .insert(auditLog)
-          .values({
-            actorCompanyId: companyId,
-            action: "stripe.seat_quantity_changed",
-            aggregateType: "company_subscription",
-            aggregateId: companyId,
-            metadata: {
-              previousQuantity: billing.lastSyncedSeatQuantity,
-              newQuantity: desired,
-              stripeSubscriptionId: billing.stripeSubscriptionId,
-            },
-          });
+        await tx.insert(auditLog).values({
+          actorCompanyId: companyId,
+          action: "stripe.seat_quantity_changed",
+          aggregateType: "company_subscription",
+          aggregateId: companyId,
+          metadata: {
+            previousQuantity: billing.lastSyncedSeatQuantity,
+            newQuantity: desired,
+            stripeSubscriptionId: billing.stripeSubscriptionId,
+          },
+        });
     });
     return { skipped: false as const, quantity: desired };
   } catch (error) {
@@ -601,6 +604,16 @@ export async function syncCompanySeatQuantity(companyId: string) {
   }
 }
 
+async function assertCompanyIsBillable(companyId: string) {
+  const [target] = await getDb()
+    .select({ isPlatformOwner: company.isPlatformOwner })
+    .from(company)
+    .where(and(eq(company.id, companyId), eq(company.kind, "dealer")))
+    .limit(1);
+  if (!target) throw new AccessError(404, "COMPANY_NOT_FOUND");
+  if (isBillingExempt(target)) throw new AccessError(409, "BILLING_EXEMPT");
+}
+
 export async function syncPendingSeatQuantities(limit = 25) {
   const staleBefore = new Date(Date.now() - 10 * 60_000);
   const claimable = or(
@@ -617,7 +630,8 @@ export async function syncPendingSeatQuantities(limit = 25) {
   const rows = await getDb()
     .select({ companyId: companySubscription.companyId })
     .from(companySubscription)
-    .where(activeClaimable)
+    .innerJoin(company, eq(company.id, companySubscription.companyId))
+    .where(and(activeClaimable, eq(company.isPlatformOwner, false)))
     .limit(Math.min(Math.max(limit, 1), 100));
   for (const row of rows) {
     const claimed = await getDb()

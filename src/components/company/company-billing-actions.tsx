@@ -14,8 +14,10 @@ import {
 type Action = "checkout" | "portal";
 
 type BillingSummary = {
-  status: "GRATIS" | "PREMIUM" | "OBETALD";
-  source: "free_access" | "manual_override" | "stripe" | "none";
+  status: "INTERN" | "GRATIS" | "PREMIUM" | "OBETALD";
+  source:
+    "platform_owner" | "free_access" | "manual_override" | "stripe" | "none";
+  billingExempt: boolean;
   freeUntil: Date | string | null;
   periodEnd: Date | string | null;
   hasStripeCustomer: boolean;
@@ -29,6 +31,7 @@ type BillingSummary = {
 };
 
 const statusLabels = {
+  INTERN: "Trejder internkonto",
   GRATIS: "Gratis",
   PREMIUM: "Premium",
   OBETALD: "Obetald",
@@ -83,11 +86,18 @@ export function CompanyBillingActions({
       <h2 id="billing-title" className="text-xl font-semibold">
         Abonnemang och fakturering
       </h2>
-      <p className="mt-2 max-w-2xl text-[var(--muted)]">
-        Premium kostar 699 kr per månad exklusive moms och inkluderar två aktiva
-        användare. Varje ytterligare aktiv användare kostar 199 kr per månad
-        exklusive moms.
-      </p>
+      {summary.billingExempt ? (
+        <p className="mt-2 max-w-2xl font-medium text-[var(--success)]">
+          Trejder internkonto · Avgiftsbefriad. Inga abonnemangs- eller
+          användaravgifter tas ut.
+        </p>
+      ) : (
+        <p className="mt-2 max-w-2xl text-[var(--muted)]">
+          Premium kostar 699 kr per månad exklusive moms och inkluderar två
+          aktiva användare. Varje ytterligare aktiv användare kostar 199 kr per
+          månad exklusive moms.
+        </p>
+      )}
       <dl className="mt-5 grid gap-4 rounded-xl bg-[var(--surface-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <dt className="text-sm text-[var(--muted)]">Status</dt>
@@ -98,7 +108,9 @@ export function CompanyBillingActions({
           <dd className="mt-1 font-semibold">
             {summary.activeUsers}{" "}
             <span className="font-normal text-[var(--muted)]">
-              ({summary.includedUsers} ingår, {summary.extraUsers} extra)
+              {summary.billingExempt
+                ? "(obegränsat, utan extra kostnad)"
+                : `(${summary.includedUsers} ingår, ${summary.extraUsers} extra)`}
             </span>
           </dd>
         </div>
@@ -111,15 +123,19 @@ export function CompanyBillingActions({
         </div>
         <div>
           <dt className="text-sm text-[var(--muted)]">
-            {summary.status === "GRATIS"
-              ? "Gratis till"
-              : "Nästa betalning / periodslut"}
+            {summary.status === "INTERN"
+              ? "Giltighet"
+              : summary.status === "GRATIS"
+                ? "Gratis till"
+                : "Nästa betalning / periodslut"}
           </dt>
           <dd className="mt-1 font-semibold">
             {formatAdminDate(
-              summary.status === "GRATIS"
-                ? summary.freeUntil
-                : summary.periodEnd,
+              summary.status === "INTERN"
+                ? null
+                : summary.status === "GRATIS"
+                  ? summary.freeUntil
+                  : summary.periodEnd,
             )}
           </dd>
         </div>
@@ -131,6 +147,11 @@ export function CompanyBillingActions({
         >
           Ni kan se marknaden, men ett aktivt abonnemang krävs för att lägga bud
           och använda övriga företagsfunktioner.
+        </p>
+      ) : null}
+      {summary.billingExempt ? (
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Stripe Checkout och platsdebitering är avstängda för detta företag.
         </p>
       ) : null}
       {summary.source === "manual_override" ? (
@@ -150,7 +171,7 @@ export function CompanyBillingActions({
           <FormMessage type="error">{error}</FormMessage>
         </div>
       ) : null}
-      {canManage ? (
+      {canManage && !summary.billingExempt ? (
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           {canStartCheckout ? (
             <button
@@ -177,15 +198,17 @@ export function CompanyBillingActions({
             </button>
           ) : null}
         </div>
-      ) : (
+      ) : !summary.billingExempt ? (
         <p className="mt-5 text-sm text-[var(--muted)]">
           En företagsadministratör kan starta eller hantera abonnemanget.
         </p>
-      )}
-      <p className="mt-4 text-sm text-[var(--muted)]">
-        Kort- och betalningsuppgifter hanteras säkert hos Stripe och lagras inte
-        i Trejder.
-      </p>
+      ) : null}
+      {!summary.billingExempt ? (
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Kort- och betalningsuppgifter hanteras säkert hos Stripe och lagras
+          inte i Trejder.
+        </p>
+      ) : null}
     </section>
   );
 }

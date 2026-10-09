@@ -141,6 +141,13 @@
       "when": 1791300697372,
       "tag": "0019_trejder_member_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791555941793,
+      "tag": "0020_trejder_inactive_platform_owner",
+      "breakpoints": true
     }
   ]
 }

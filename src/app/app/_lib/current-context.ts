@@ -42,6 +42,7 @@ export async function getOptionalCurrentCompanyContext(): Promise<ActiveCompanyC
       legalName: selected.legalName,
       organizationNumber: selected.organizationNumber,
       kind: selected.kind,
+      isPlatformOwner: selected.isPlatformOwner,
     },
     membership: { id: selected.membershipId, role: selected.role },
   };

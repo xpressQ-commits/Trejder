@@ -1,26 +1,47 @@
 export const PREMIUM_BASE_MONTHLY_EX_VAT_ORE = 69_900;
 export const INCLUDED_ACTIVE_USERS = 2;
 export const EXTRA_USER_MONTHLY_EX_VAT_ORE = 19_900;
-export type StripeBillingState = "none" | "active" | "past_due" | "unpaid" | "canceled";
+export type StripeBillingState =
+  "none" | "active" | "past_due" | "unpaid" | "canceled";
 export type BillingOverride = "manual_block" | "manual_premium" | null;
 
 export type SubscriptionPolicyInput = Readonly<{
+  billingExempt?: boolean;
   override: BillingOverride;
   freeAccessEndsAt: Date | null;
   stripeState: StripeBillingState;
 }>;
 
 export type EffectiveSubscription = Readonly<{
-  status: "GRATIS" | "PREMIUM" | "OBETALD";
-  source: "free_access" | "manual_override" | "stripe" | "none";
+  status: "INTERN" | "GRATIS" | "PREMIUM" | "OBETALD";
+  source:
+    "platform_owner" | "free_access" | "manual_override" | "stripe" | "none";
   canAccess: boolean;
 }>;
 
-export function calculateBillableSeats(activeMembershipCount: number) {
-  if (!Number.isSafeInteger(activeMembershipCount) || activeMembershipCount < 0) {
-    throw new RangeError("activeMembershipCount must be a non-negative integer");
+export function calculateBillableSeats(
+  activeMembershipCount: number,
+  billingExempt = false,
+) {
+  if (
+    !Number.isSafeInteger(activeMembershipCount) ||
+    activeMembershipCount < 0
+  ) {
+    throw new RangeError(
+      "activeMembershipCount must be a non-negative integer",
+    );
   }
   const extraUsers = Math.max(activeMembershipCount - INCLUDED_ACTIVE_USERS, 0);
+  if (billingExempt) {
+    return {
+      activeUsers: activeMembershipCount,
+      includedUsers: activeMembershipCount,
+      extraUsers: 0,
+      baseMonthlyExVatOre: 0,
+      extraMonthlyExVatOre: 0,
+      totalMonthlyExVatOre: 0,
+    } as const;
+  }
   return {
     activeUsers: activeMembershipCount,
     includedUsers: INCLUDED_ACTIVE_USERS,
@@ -28,7 +49,8 @@ export function calculateBillableSeats(activeMembershipCount: number) {
     baseMonthlyExVatOre: PREMIUM_BASE_MONTHLY_EX_VAT_ORE,
     extraMonthlyExVatOre: extraUsers * EXTRA_USER_MONTHLY_EX_VAT_ORE,
     totalMonthlyExVatOre:
-      PREMIUM_BASE_MONTHLY_EX_VAT_ORE + extraUsers * EXTRA_USER_MONTHLY_EX_VAT_ORE,
+      PREMIUM_BASE_MONTHLY_EX_VAT_ORE +
+      extraUsers * EXTRA_USER_MONTHLY_EX_VAT_ORE,
   } as const;
 }
 
@@ -37,21 +59,35 @@ export function resolveSubscriptionAccess(
   input: SubscriptionPolicyInput,
   now = new Date(),
 ): EffectiveSubscription {
+  if (input.billingExempt) {
+    return { status: "INTERN", source: "platform_owner", canAccess: true };
+  }
   if (input.override === "manual_block") {
     return { status: "OBETALD", source: "manual_override", canAccess: false };
   }
   if (input.override === "manual_premium") {
     return { status: "PREMIUM", source: "manual_override", canAccess: true };
   }
-  if (input.freeAccessEndsAt && input.freeAccessEndsAt.getTime() > now.getTime()) {
+  if (
+    input.freeAccessEndsAt &&
+    input.freeAccessEndsAt.getTime() > now.getTime()
+  ) {
     return { status: "GRATIS", source: "free_access", canAccess: true };
   }
   if (input.stripeState === "active" || input.stripeState === "past_due") {
     return { status: "PREMIUM", source: "stripe", canAccess: true };
   }
-  return { status: "OBETALD", source: input.stripeState === "none" ? "none" : "stripe", canAccess: false };
+  return {
+    status: "OBETALD",
+    source: input.stripeState === "none" ? "none" : "stripe",
+    canAccess: false,
+  };
 }
 
-export function stripeExtraUserQuantity(activeMembershipCount: number): number {
-  return calculateBillableSeats(activeMembershipCount).extraUsers;
+export function stripeExtraUserQuantity(
+  activeMembershipCount: number,
+  billingExempt = false,
+): number {
+  return calculateBillableSeats(activeMembershipCount, billingExempt)
+    .extraUsers;
 }

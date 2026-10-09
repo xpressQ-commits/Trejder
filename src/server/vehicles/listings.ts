@@ -7,10 +7,18 @@ import {
   normalizeIdentifier,
   normalizeModelYear,
   normalizeMileageMil,
+  normalizePublicationHours,
+  isListingExpired,
+  type PublicationHours,
   type VehicleIdentifier,
 } from "@/domain/vehicle-listing";
 import { getDb } from "@/server/db";
-import { auditLog, vehicleImage, vehicleListing } from "@/server/db/schema";
+import {
+  auditLog,
+  bid,
+  vehicleImage,
+  vehicleListing,
+} from "@/server/db/schema";
 import { AccessError } from "@/server/security";
 import {
   redactVehicleImage,
@@ -23,7 +31,7 @@ import {
   validateImage,
 } from "@/server/storage/images";
 
-type ListingStatus = "draft" | "active" | "matched" | "withdrawn";
+type ListingStatus = "draft" | "active" | "inactive" | "matched" | "withdrawn";
 
 export type OwnListingDto = {
   id: string;
@@ -35,7 +43,7 @@ export type OwnListingDto = {
   otherEquipment: string | null;
   deductibleVat: boolean;
   status: ListingStatus;
-  publicationHours: number;
+  publicationHours: number | null;
   createdAt: Date;
   publishedAt: Date | null;
   expiresAt: Date | null;
@@ -58,7 +66,7 @@ export type ListingInput = {
   equipment?: EquipmentKey[];
   otherEquipment?: string | null;
   deductibleVat: boolean;
-  publicationHours?: number;
+  publicationHours?: PublicationHours;
 };
 
 function normalizeComment(value: string): string {
@@ -78,7 +86,27 @@ function normalizeOtherEquipment(
   return normalized || null;
 }
 
-function normalizedListingValues(input: ListingInput) {
+function validatedPublicationHours(
+  value: number | null,
+  allowUnlimitedPublication: boolean,
+) {
+  try {
+    return normalizePublicationHours(value, allowUnlimitedPublication);
+  } catch (error) {
+    throw new AccessError(
+      error instanceof Error &&
+        error.message === "UNLIMITED_PUBLICATION_FORBIDDEN"
+        ? 403
+        : 400,
+      error instanceof Error ? error.message : "INVALID_PUBLICATION_DURATION",
+    );
+  }
+}
+
+function normalizedListingValues(
+  input: ListingInput,
+  allowUnlimitedPublication: boolean,
+) {
   let identifier: Extract<VehicleIdentifier, { kind: "model" }>;
   let mileageKm: number;
   let modelYear: number;
@@ -101,7 +129,10 @@ function normalizedListingValues(input: ListingInput) {
     equipment: normalizeEquipment(input.equipment ?? []),
     otherEquipment: normalizeOtherEquipment(input.otherEquipment),
     deductibleVat: input.deductibleVat,
-    publicationDurationHours: input.publicationHours ?? 48,
+    publicationDurationHours: validatedPublicationHours(
+      input.publicationHours === undefined ? 48 : input.publicationHours,
+      allowUnlimitedPublication,
+    ),
   } as const;
 }
 
@@ -135,7 +166,7 @@ function toDto(
     equipment: normalizeEquipment(row.equipment),
     otherEquipment: row.otherEquipment,
     deductibleVat: row.deductibleVat,
-    status: row.status,
+    status: isListingExpired(row) ? "inactive" : row.status,
     publicationHours: row.publicationDurationHours,
     createdAt: row.createdAt,
     publishedAt: row.publishedAt,
@@ -155,20 +186,13 @@ function toDto(
 
 export async function listOwnListings(
   companyId: string,
-  status?: "draft" | "active" | "withdrawn",
+  status?: ListingStatus,
 ): Promise<OwnListingDto[]> {
   const db = getDb();
   const listings = await db
     .select()
     .from(vehicleListing)
-    .where(
-      status
-        ? and(
-            eq(vehicleListing.sellerCompanyId, companyId),
-            eq(vehicleListing.status, status),
-          )
-        : eq(vehicleListing.sellerCompanyId, companyId),
-    )
+    .where(eq(vehicleListing.sellerCompanyId, companyId))
     .orderBy(desc(vehicleListing.createdAt));
   if (listings.length === 0) return [];
   const images = await db
@@ -181,12 +205,22 @@ export async function listOwnListings(
       ),
     )
     .orderBy(asc(vehicleImage.position));
-  return listings.map((listing) =>
+  const result = listings.map((listing) =>
     toDto(
       listing,
       images.filter((image) => image.listingId === listing.id),
     ),
   );
+  const filtered = status
+    ? result.filter((listing) => listing.status === status)
+    : result;
+  return status === "inactive"
+    ? filtered.sort(
+        (left, right) =>
+          new Date(right.expiresAt ?? 0).getTime() -
+          new Date(left.expiresAt ?? 0).getTime(),
+      )
+    : filtered;
 }
 
 export async function getOwnListing(
@@ -217,8 +251,12 @@ export async function createDraft(input: {
   companyId: string;
   actorUserId: string;
   values: ListingInput;
+  allowUnlimitedPublication?: boolean;
 }): Promise<OwnListingDto> {
-  const values = normalizedListingValues(input.values);
+  const values = normalizedListingValues(
+    input.values,
+    input.allowUnlimitedPublication ?? false,
+  );
   const [created] = await getDb().transaction(async (tx) => {
     const rows = await tx
       .insert(vehicleListing)
@@ -247,6 +285,7 @@ export async function updateOwnListing(input: {
   listingId: string;
   actorUserId: string;
   values: Partial<ListingInput>;
+  allowUnlimitedPublication?: boolean;
 }): Promise<OwnListingDto> {
   await getDb().transaction(async (tx) => {
     const [listing] = await tx
@@ -313,7 +352,10 @@ export async function updateOwnListing(input: {
     if (input.values.deductibleVat !== undefined)
       update.deductibleVat = input.values.deductibleVat;
     if (input.values.publicationHours !== undefined)
-      update.publicationDurationHours = input.values.publicationHours;
+      update.publicationDurationHours = validatedPublicationHours(
+        input.values.publicationHours,
+        input.allowUnlimitedPublication ?? false,
+      );
 
     await tx
       .update(vehicleListing)
@@ -353,7 +395,7 @@ export async function publishListing(input: {
       )
       .for("update");
     if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
-    if (listing.status === "active") return;
+    if (listing.status === "active" && !isListingExpired(listing)) return;
     if (listing.status !== "draft")
       throw new AccessError(409, "INVALID_LISTING_TRANSITION");
     if (listing.modelYear === null)
@@ -405,9 +447,14 @@ export async function publishListing(input: {
       .set({
         status: "active",
         publishedAt,
-        expiresAt: new Date(
-          publishedAt.getTime() + listing.publicationDurationHours * 3_600_000,
-        ),
+        expiresAt:
+          listing.publicationDurationHours === null
+            ? null
+            : new Date(
+                publishedAt.getTime() +
+                  listing.publicationDurationHours * 3_600_000,
+              ),
+        publicationRound: listing.publicationRound + 1,
         updatedAt: publishedAt,
       })
       .where(
@@ -422,6 +469,90 @@ export async function publishListing(input: {
       action: "vehicle_listing.published",
       aggregateType: "vehicle_listing",
       aggregateId: listing.id,
+    });
+  });
+  return getOwnListing(input.companyId, input.listingId);
+}
+
+export async function republishListing(input: {
+  companyId: string;
+  listingId: string;
+  actorUserId: string;
+  publicationHours: PublicationHours;
+  allowUnlimitedPublication?: boolean;
+}): Promise<OwnListingDto> {
+  let publicationHours: PublicationHours;
+  try {
+    publicationHours = normalizePublicationHours(
+      input.publicationHours,
+      input.allowUnlimitedPublication ?? false,
+    );
+  } catch (error) {
+    throw new AccessError(
+      403,
+      error instanceof Error &&
+        error.message === "UNLIMITED_PUBLICATION_FORBIDDEN"
+        ? "UNLIMITED_PUBLICATION_FORBIDDEN"
+        : "INVALID_PUBLICATION_DURATION",
+    );
+  }
+  await getDb().transaction(async (tx) => {
+    const [listing] = await tx
+      .select()
+      .from(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, input.listingId),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+        ),
+      )
+      .for("update");
+    if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
+    if (!isListingExpired(listing)) {
+      throw new AccessError(409, "LISTING_NOT_INACTIVE");
+    }
+    const publishedAt = new Date();
+    await tx
+      .update(bid)
+      .set({ status: "expired", updatedAt: publishedAt })
+      .where(
+        and(
+          eq(bid.listingId, listing.id),
+          eq(bid.publicationRound, listing.publicationRound),
+          eq(bid.status, "active"),
+        ),
+      );
+    await tx
+      .update(vehicleListing)
+      .set({
+        publishedAt,
+        expiresAt:
+          publicationHours === null
+            ? null
+            : new Date(publishedAt.getTime() + publicationHours * 3_600_000),
+        publicationDurationHours: publicationHours,
+        publicationRound: listing.publicationRound + 1,
+        version: listing.version + 1,
+        updatedAt: publishedAt,
+      })
+      .where(
+        and(
+          eq(vehicleListing.id, listing.id),
+          eq(vehicleListing.sellerCompanyId, input.companyId),
+          eq(vehicleListing.status, "active"),
+        ),
+      );
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.companyId,
+      action: "vehicle_listing.republished",
+      aggregateType: "vehicle_listing",
+      aggregateId: listing.id,
+      metadata: {
+        previousPublicationRound: listing.publicationRound,
+        publicationRound: listing.publicationRound + 1,
+        publicationHours,
+      },
     });
   });
   return getOwnListing(input.companyId, input.listingId);

@@ -75,13 +75,20 @@ export function SellerListingDetail({
           </div>
           {listing.expiresAt ? (
             <div>
-              <dt className="text-[var(--muted)]">Publicerad till</dt>
+              <dt className="text-[var(--muted)]">
+                {listing.status === "inactive" ? "Löpte ut" : "Publicerad till"}
+              </dt>
               <dd className="font-semibold">
                 {new Intl.DateTimeFormat("sv-SE", {
                   dateStyle: "medium",
                   timeStyle: "short",
                 }).format(new Date(listing.expiresAt))}
               </dd>
+            </div>
+          ) : listing.status === "active" ? (
+            <div>
+              <dt className="text-[var(--muted)]">Publicerad till</dt>
+              <dd className="font-semibold">Obegränsad</dd>
             </div>
           ) : null}
         </dl>

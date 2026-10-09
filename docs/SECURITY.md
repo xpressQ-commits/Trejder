@@ -26,6 +26,8 @@ Money is integer öre. The current server policy is 49,900 öre excluding VAT on
 
 The future accepted-match price target is 89,900 öre excluding VAT per dealer side, but Phase 3.5 does not change or charge the runtime match fee. Premium billing is separately fixed at 69,900 öre/month plus 19,900 öre per active user above two. Only the canonical server seat function supplies Stripe quantity.
 
+PWT Invest AB's platform-owner flag is a protected database policy input. The server independently zeroes only that company's match-fee side; a non-exempt counterparty retains the normal fee snapshot. No browser-supplied company identity or exemption value participates.
+
 ### Subscription and Stripe isolation
 
 Dealer membership and subscription access are separate checks. Read-only marketplace routes and company settings require a fresh active dealer membership but deliberately permit an unpaid company. Dealer mutations, including bidding, remain subscription-gated on the server. Dealer ADMIN billing, company-contact and member-remediation routes also permit an unpaid company. Platform-admin authority remains independent. Manual block outranks every Stripe webhook, and no webhook clears an override.
@@ -34,9 +36,11 @@ Checkout and portal requests derive the company from the authenticated selected-
 
 Stripe webhooks require a valid signature over the unparsed body. Processed event IDs are unique, so replays cannot duplicate business actions. Audit metadata may contain Stripe object IDs and statuses, but never secrets, payment credentials or full payment details. An invoice failure records a conservative billing problem; it never removes company data or memberships.
 
+Platform-owner companies are rejected before Stripe customer, Checkout or Portal creation and are omitted from licensed-seat synchronization. Their entitlement and zero seat cost come from the central server policy even if stale subscription data exists.
+
 ### State, concurrency and audit
 
-Publishing, bid mutation and acceptance are server-controlled transitions. Acceptance uses a single transaction, row locking/conditional updates and unique constraints. Sensitive commands use idempotency where retries can duplicate effects. Successful important actions append a sanitized audit record attributed from the session, never the request body.
+Publishing, republication, bid mutation and acceptance are server-controlled transitions. Republication locks the listing, verifies server-derived expiry, closes the current bid round and increments the round atomically. Acceptance uses a single transaction, row locking/conditional updates and unique constraints. Sensitive commands use idempotency where retries can duplicate effects. Successful important actions append a sanitized audit record attributed from the session, never the request body.
 
 Production database privileges should make match commercial snapshots and audit rows append-only/immutable for the runtime role.
 

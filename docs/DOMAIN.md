@@ -2,12 +2,12 @@
 
 ## Core records
 
-- **Company:** a dealer business; owns listings and bids through its users.
+- **Company:** a dealer business; owns listings and bids through its users. One protected flag identifies the Trejder platform-owner company.
 - **User:** an authenticated human identity.
 - **CompanyMembership:** connects one user to one company with `ADMIN`, `TRADER` or `VIEWER` authority and an active, suspended or revoked state.
 - **CompanyInvitation:** one-time, expiring invitation to a company and role.
 - **AccountApplication:** public dealer application in pending, approved or rejected review state; it grants no access by itself.
-- **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag, 48–120 hour publication duration and server-controlled state.
+- **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag, publication duration and server-controlled state. A publication round separates bids across republications.
 - **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 1–5 valid images; completed plate checks are required when redaction is configured.
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.
 - **Match/Deal:** result of accepting one bid, including immutable parties, amount and historical commercial terms plus a small deal lifecycle (`accepted -> in_progress -> completed`).
@@ -28,6 +28,7 @@
 - Membership commits only mark seat synchronization pending. A retryable server worker updates the licensed Stripe item outside the membership transaction.
 - Checkout is allowed only when no manual override or active free window exists and no live Stripe subscription is already linked. This prevents charging while a higher-precedence access decision remains visible.
 - An active dealer membership is sufficient for marketplace reads and subscription/settings remediation. A valid subscription is additionally required for dealer mutations such as bidding and asking questions.
+- The protected platform-owner company is always internally entitled, has zero billable seats, cannot enter Stripe checkout/customer flows and is excluded from seat synchronization. This policy is derived from the server-loaded company flag, never client input.
 
 ## Invariants encoded in the schema
 
@@ -37,7 +38,7 @@
 - A listing contains exactly one of registration number or vehicle model.
 - Mileage is a non-negative integer number of kilometres.
 - Image positions are 1–5 and unique per listing.
-- One company has at most one current bid per listing.
+- One company has at most one bid per listing publication round.
 - Bid aliases are unique within a listing.
 - A duplicated seller company key plus a composite foreign key lets PostgreSQL reject self-bidding.
 - A partial unique index permits at most one accepted bid per listing.
@@ -53,6 +54,8 @@ The publish transaction requires 1–5 images. When plate redaction is configure
 Listing:
 
 - `draft -> active`: ADMIN/TRADER of seller; complete required data, 48–120 hour publication duration and 1–5 images, plate-checked when the provider is configured. The server derives the expiry timestamp.
+- An active listing whose server-owned expiry is in the past is derived as `inactive`; no scheduler or client clock changes the stored terminal status.
+- `inactive -> active`: ADMIN/TRADER of seller republishes the same listing with a new allowed duration. The server expires active bids in the old round, increments the publication round and derives new publication/expiry timestamps.
 - `draft -> withdrawn`: ADMIN/TRADER of seller.
 - `active -> withdrawn`: ADMIN/TRADER of seller if no match exists.
 - `active -> matched`: only the bid acceptance transaction.
@@ -80,6 +83,7 @@ Bid:
 - `active -> accepted`: seller acceptance transaction.
 - other active bids become `lost` after a match.
 - `withdrawn`, `accepted` and `lost` are terminal.
+- `expired` is terminal for a bid from a completed publication round; republication creates or updates only bids in the new round.
 
 ## Acceptance algorithm (future implementation)
 
@@ -102,6 +106,7 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - Trader comments are required and limited to 500 characters.
 - A draft may be fully edited and may hold zero to five images.
 - Publishing locks the listing row, requires 1–5 images and changes `draft -> active`. Completed plate checks are enforced when redaction is configured. Repeated publication of the same active listing is idempotent.
+- PWT Invest AB may additionally choose an unlimited publication, represented by a null expiry. Other companies are rejected server-side if they attempt that value.
 - Active listings allow comment corrections and atomic image replacement only. Registration/model, mileage and VAT are locked; changing them requires withdrawal and a new listing.
 - `draft|active -> withdrawn` is allowed. Withdrawn is terminal.
 - ADMIN and TRADER mutate. VIEWER has own-company read access only.

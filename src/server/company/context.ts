@@ -21,6 +21,7 @@ export type ActiveCompanyContext = {
     legalName: string;
     organizationNumber: string;
     kind: "dealer" | "private";
+    isPlatformOwner: boolean;
   };
   membership: { id: string; role: Role };
 };
@@ -50,6 +51,7 @@ export async function listActiveCompanyContexts(userId: string) {
       legalName: company.legalName,
       organizationNumber: company.organizationNumber,
       kind: company.kind,
+      isPlatformOwner: company.isPlatformOwner,
       role: companyMembership.role,
     })
     .from(companyMembership)
@@ -86,6 +88,7 @@ export async function requireActiveCompanyContext(
       legalName: selected.legalName,
       organizationNumber: selected.organizationNumber,
       kind: selected.kind,
+      isPlatformOwner: selected.isPlatformOwner,
     },
     membership: { id: selected.membershipId, role: selected.role },
   };
