@@ -2,6 +2,7 @@ import {
   and,
   asc,
   count,
+  countDistinct,
   desc,
   eq,
   gt,
@@ -32,6 +33,24 @@ function dealerLabel(number: number) {
   return `Handlare ${String.fromCharCode(64 + Math.min(number, 26))}`;
 }
 
+export function toPublicBidActivity(
+  rows: Array<{ anonymousNumber: number; createdAt: Date }>,
+) {
+  const uniqueByBidder = new Map<number, (typeof rows)[number]>();
+  for (const row of rows) {
+    if (!uniqueByBidder.has(row.anonymousNumber))
+      uniqueByBidder.set(row.anonymousNumber, row);
+  }
+  const unique = [...uniqueByBidder.values()];
+  return {
+    bidderCount: unique.length,
+    activity: unique.map((row) => ({
+      anonymousLabel: dealerLabel(row.anonymousNumber),
+      createdAt: row.createdAt,
+    })),
+  };
+}
+
 async function notifyCompanyMembers(
   tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
   companyId: string,
@@ -40,6 +59,7 @@ async function notifyCompanyMembers(
     body: string;
     resourceType: string;
     resourceId: string;
+    metadata?: Record<string, unknown>;
   },
 ) {
   const recipients = await tx
@@ -203,6 +223,39 @@ export async function getOwnBid(listingId: string, bidderCompanyId: string) {
   return row ?? null;
 }
 
+export async function listPublicBidActivity(listingId: string) {
+  const [listing] = await getDb()
+    .select({ publicationRound: vehicleListing.publicationRound })
+    .from(vehicleListing)
+    .where(
+      and(
+        eq(vehicleListing.id, listingId),
+        eq(vehicleListing.status, "active"),
+        or(
+          isNull(vehicleListing.expiresAt),
+          gt(vehicleListing.expiresAt, new Date()),
+        ),
+      ),
+    )
+    .limit(1);
+  if (!listing) throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
+  const rows = await getDb()
+    .select({
+      anonymousNumber: bid.anonymousNumber,
+      createdAt: bid.createdAt,
+    })
+    .from(bid)
+    .where(
+      and(
+        eq(bid.listingId, listingId),
+        eq(bid.publicationRound, listing.publicationRound),
+        eq(bid.status, "active"),
+      ),
+    )
+    .orderBy(asc(bid.createdAt));
+  return toPublicBidActivity(rows);
+}
+
 export async function listSellerBids(
   listingId: string,
   sellerCompanyId: string,
@@ -212,30 +265,64 @@ export async function listSellerBids(
       eq(vehicleListing.id, listingId),
       eq(vehicleListing.sellerCompanyId, sellerCompanyId),
     ),
-    columns: { id: true, publicationRound: true },
+    columns: { id: true, publicationRound: true, status: true },
   });
   if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
+  const selection = {
+    id: bid.id,
+    amountOre: bid.amountOre,
+    status: bid.status,
+    anonymousNumber: bid.anonymousNumber,
+    createdAt: bid.createdAt,
+    updatedAt: bid.updatedAt,
+  } as const;
   const rows = await getDb()
     .select({
-      id: bid.id,
-      amountOre: bid.amountOre,
-      status: bid.status,
-      anonymousNumber: bid.anonymousNumber,
-      createdAt: bid.createdAt,
-      updatedAt: bid.updatedAt,
+      ...selection,
     })
     .from(bid)
     .where(
       and(
         eq(bid.listingId, listingId),
         eq(bid.publicationRound, listing.publicationRound),
+        eq(bid.status, "active"),
       ),
     )
-    .orderBy(desc(bid.amountOre), asc(bid.createdAt));
-  return rows.map(({ anonymousNumber, ...row }) => ({
+    .orderBy(desc(bid.amountOre), asc(bid.createdAt))
+    .limit(3);
+  const [total] = await getDb()
+    .select({ value: countDistinct(bid.bidderCompanyId) })
+    .from(bid)
+    .where(
+      and(
+        eq(bid.listingId, listingId),
+        eq(bid.publicationRound, listing.publicationRound),
+        eq(bid.status, "active"),
+      ),
+    );
+  const [accepted] =
+    listing.status === "matched"
+      ? await getDb()
+          .select({ ...selection })
+          .from(bid)
+          .where(
+            and(
+              eq(bid.listingId, listingId),
+              eq(bid.publicationRound, listing.publicationRound),
+              eq(bid.status, "accepted"),
+            ),
+          )
+          .limit(1)
+      : [];
+  const toSellerDto = ({ anonymousNumber, ...row }: (typeof rows)[number]) => ({
     ...row,
     bidderLabel: dealerLabel(anonymousNumber),
-  }));
+  });
+  return {
+    bids: rows.map(toSellerDto),
+    acceptedBid: accepted ? toSellerDto(accepted) : null,
+    totalActiveBidders: Number(total?.value ?? 0),
+  };
 }
 
 export async function countSellerActiveBids(sellerCompanyId: string) {
@@ -255,6 +342,102 @@ export async function countSellerActiveBids(sellerCompanyId: string) {
       ),
     );
   return result.value;
+}
+
+export async function rejectBid(input: {
+  listingId: string;
+  bidId: string;
+  sellerCompanyId: string;
+  actorUserId: string;
+}) {
+  let pushRecipients: string[] = [];
+  const rejected = await getDb().transaction(async (tx) => {
+    const [listing] = await tx
+      .select({
+        id: vehicleListing.id,
+        status: vehicleListing.status,
+        expiresAt: vehicleListing.expiresAt,
+        publicationRound: vehicleListing.publicationRound,
+        vehicleModel: vehicleListing.vehicleModel,
+        registrationNumber: vehicleListing.registrationNumber,
+      })
+      .from(vehicleListing)
+      .where(
+        and(
+          eq(vehicleListing.id, input.listingId),
+          eq(vehicleListing.sellerCompanyId, input.sellerCompanyId),
+        ),
+      )
+      .for("update");
+    if (!listing) throw new AccessError(404, "LISTING_NOT_FOUND");
+    if (
+      listing.status !== "active" ||
+      (listing.expiresAt !== null && listing.expiresAt <= new Date())
+    )
+      throw new AccessError(409, "LISTING_NOT_ACTIVE");
+    const [target] = await tx
+      .select()
+      .from(bid)
+      .where(
+        and(
+          eq(bid.id, input.bidId),
+          eq(bid.listingId, listing.id),
+          eq(bid.listingSellerCompanyId, input.sellerCompanyId),
+          eq(bid.publicationRound, listing.publicationRound),
+        ),
+      )
+      .for("update");
+    if (!target) throw new AccessError(404, "BID_NOT_FOUND");
+    if (target.status !== "active")
+      throw new AccessError(409, "BID_NOT_ACTIVE");
+    const [saved] = await tx
+      .update(bid)
+      .set({
+        status: "rejected",
+        version: target.version + 1,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(bid.id, target.id), eq(bid.status, "active")))
+      .returning({ id: bid.id, status: bid.status });
+    if (!saved) throw new AccessError(409, "BID_NOT_ACTIVE");
+    await tx.insert(auditLog).values({
+      actorUserId: input.actorUserId,
+      actorCompanyId: input.sellerCompanyId,
+      action: "bid.rejected",
+      aggregateType: "bid",
+      aggregateId: target.id,
+      metadata: {
+        listingId: listing.id,
+        bidderCompanyId: target.bidderCompanyId,
+        amountOre: target.amountOre,
+      },
+    });
+    const listingLabel =
+      listing.vehicleModel ?? listing.registrationNumber ?? "bilannonsen";
+    pushRecipients = await notifyCompanyMembers(tx, target.bidderCompanyId, {
+      type: "bid.rejected",
+      body: `Ditt bud på ${listingLabel} har avböjts.`,
+      resourceType: "listing",
+      resourceId: listing.id,
+      metadata: {
+        listingId: listing.id,
+        bidId: target.id,
+        amountOre: target.amountOre,
+      },
+    });
+    return saved;
+  });
+  await sendPushToUsers(pushRecipients, {
+    title: "Bud avböjt på Trejder",
+    body: "Ditt bud har avböjts.",
+    url: notificationUrl({
+      type: "bid.rejected",
+      resourceType: "listing",
+      resourceId: input.listingId,
+    }),
+    tag: `bid-rejected-${input.bidId}`,
+  });
+  return rejected;
 }
 
 export async function acceptBid(input: {

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requireDealerMembershipPermission: vi.fn(),
   requireDealerPermission: vi.fn(),
   getOwnBid: vi.fn(),
+  listPublicBidActivity: vi.fn(),
   placeBid: vi.fn(),
 }));
 
@@ -25,6 +26,7 @@ vi.mock("@/server/company/context", () => ({
 }));
 vi.mock("@/server/bids", () => ({
   getOwnBid: mocks.getOwnBid,
+  listPublicBidActivity: mocks.listPublicBidActivity,
   placeBid: mocks.placeBid,
 }));
 
@@ -44,6 +46,10 @@ describe("unpaid marketplace access boundary", () => {
     mocks.requireDealerMembershipPermission.mockResolvedValue(context);
     mocks.requireDealerPermission.mockResolvedValue(context);
     mocks.getOwnBid.mockResolvedValue(null);
+    mocks.listPublicBidActivity.mockResolvedValue({
+      bidderCount: 0,
+      activity: [],
+    });
     mocks.placeBid.mockResolvedValue({ id: "bid-id" });
   });
 

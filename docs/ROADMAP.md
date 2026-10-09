@@ -38,6 +38,8 @@ Server-owned Gratis/Premium/Obetald access state, deterministic manual overrides
 
 Create/update/withdraw bid, listing-scoped bidder aliases and seller bid view. Ship only with anonymity contracts, IDOR tests, fee/amount mass-assignment tests and audit coverage.
 
+The vehicle-detail enhancement adds separate buyer activity and seller top-three DTOs, transactionally authorized bid rejection, unread bidder notification and the responsive gallery/activity layout without changing the binding acceptance algorithm.
+
 ## Phase 5 — Acceptance and completed matches
 
 Transactional acceptance of any valid bid, concurrency/idempotency tests, immutable commercial snapshots and bilateral identity reveal. Payments remain out of scope.

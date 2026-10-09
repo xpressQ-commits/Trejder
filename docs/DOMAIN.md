@@ -80,9 +80,10 @@ Bid:
 - create as `active` only on another company's active listing.
 - update amount while `active`, scoped to the bidder company, using optimistic versioning.
 - `active -> withdrawn`: bidder company ADMIN/TRADER.
+- `active -> rejected`: listing-owner ADMIN/TRADER only while the listing and bid remain active; the bidder receives an unread notification.
 - `active -> accepted`: seller acceptance transaction.
 - other active bids become `lost` after a match.
-- `withdrawn`, `accepted` and `lost` are terminal.
+- `withdrawn`, `accepted`, `rejected` and `lost` are terminal for that bid state. A later bidder submission may explicitly reactivate its current-round bid as a new offer.
 - `expired` is terminal for a bid from a completed publication round; republication creates or updates only bids in the new round.
 
 ## Acceptance algorithm (future implementation)
@@ -98,6 +99,7 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - Marketplace projections deliberately omit seller company/user identity, storage keys and internal metadata.
 - Marketplace images are readable only while the corresponding listing satisfies the marketplace visibility predicate.
 - Feed queries use bounded, newest-first cursor pagination and optional registration/model text and deductible-VAT filters.
+- Buyer-facing bid activity contains only the listing-scoped anonymous label and first-bid timestamp. Seller detail returns a separate DTO containing at most three active bids ordered by amount descending and creation time ascending, plus the unique active-bidder count.
 
 ## Phase 2 listing policy
 

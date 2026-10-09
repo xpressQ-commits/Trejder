@@ -148,6 +148,13 @@
       "when": 1791555941793,
       "tag": "0020_trejder_inactive_platform_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791559220030,
+      "tag": "0021_trejder_bid_rejection",
+      "breakpoints": true
     }
   ]
 }

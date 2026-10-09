@@ -73,6 +73,8 @@ Authorized image reads go through a tenant-scoped application route. DTOs contai
 
 Marketplace reads use dedicated allow-listed DTOs and fresh active-company authorization. Queries expose only active listings owned by other companies, use bounded cursor pagination, and never select seller identity. Marketplace image routes repeat the same active/non-owner predicate at read time.
 
+Vehicle detail activity is split by audience. The public endpoint selects only anonymous alias numbers and timestamps and derives a unique-bidder summary. The seller endpoint applies active/current-round predicates, amount ordering and a three-row limit in PostgreSQL. Questions are fetched once per panel alongside—not once per bid—and no aggressive polling is introduced.
+
 Expiry is query-derived from the database clock boundary (`expires_at`) rather than a background transition. Marketplace and mutation predicates exclude timed-out listings immediately; the seller projection labels them inactive. A nullable expiry is reserved server-side for the platform-owner company. Publication-round numbers isolate bids when the same listing is republished.
 
 ## Configuration

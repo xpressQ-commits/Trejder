@@ -16,6 +16,8 @@ Global company and membership administration is exposed only below `/admin` and 
 
 Before acceptance, seller APIs return an explicit allow-list only: opaque listing-scoped bid reference, `Bidgivare N`, amount, timestamps and later approved anonymous trust signals. They never serialize ORM bid rows or return company/user IDs, organization number, identity, contact data, globally stable aliases or lookup-capable metadata. Non-winning bidders stay anonymous after another bid wins.
 
+Buyer-facing public bid activity uses a different, smaller DTO: anonymous listing-scoped label and timestamp only. It never contains bid IDs, amounts, company IDs or user IDs. Seller top-three ranking and unique-bidder counting are database-side. Bid rejection revalidates seller ownership, current publication round, listing activity and bid activity inside one transaction.
+
 Identity is revealed only through a completed-match projection to the matched seller and buyer.
 
 Private-customer accounts use a dedicated `private_customer` membership role and a server-owned private company context. They may mutate only their own listings and seller-side bid/Q&A/deal resources. Marketplace reads, bidding and dealer-company administration require a dealer company context and are denied server-side. Public Q&A and pre-accept bid messages use allow-listed anonymous DTOs and reject contact-sharing content server-side. Q&A aliases are allocated per listing and never reused as a global identity.

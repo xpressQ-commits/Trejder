@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { getOwnBid, placeBid } from "@/server/bids";
+import { getOwnBid, listPublicBidActivity, placeBid } from "@/server/bids";
 import {
   ACTIVE_COMPANY_COOKIE,
   requireDealerMembershipPermission,
@@ -39,9 +39,11 @@ export async function GET(
     if (!z.uuid().safeParse(listingId).success)
       throw new AccessError(404, "LISTING_NOT_FOUND");
     const current = await readContext(request);
-    return Response.json({
-      bid: await getOwnBid(listingId, current.company.id),
-    });
+    const [ownBid, publicActivity] = await Promise.all([
+      getOwnBid(listingId, current.company.id),
+      listPublicBidActivity(listingId),
+    ]);
+    return Response.json({ bid: ownBid, publicActivity });
   } catch (error) {
     return errorResponse(error);
   }

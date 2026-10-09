@@ -30,7 +30,8 @@ export function SellerListingDetail({
           </div>
           <p className="mt-2 text-[var(--muted)]">
             {listing.modelYear ? `${listing.modelYear} · ` : ""}
-            {new Intl.NumberFormat("sv-SE").format(listing.mileageMil)} mil
+            {new Intl.NumberFormat("sv-SE").format(listing.mileageMil)} mil ·{" "}
+            {listing.deductibleVat ? "Avdragbar moms" : "Ej avdragbar moms"}
           </p>
         </div>
         {dealId ? (
@@ -53,13 +54,22 @@ export function SellerListingDetail({
           </Link>
         ) : null}
       </div>
-      <div className="mt-6">
+      <div
+        className={`mt-6 ${listing.status === "draft" ? "" : "grid items-start gap-7 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]"}`}
+      >
         <VehicleGallery
           images={listing.images}
           label={listing.identifier.value}
         />
+        {listing.status !== "draft" ? (
+          <SellerActivity
+            listingId={listing.id}
+            canMutate={canMutate}
+            dealId={dealId}
+          />
+        ) : null}
       </div>
-      <div className="mt-7 grid gap-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 md:grid-cols-[1fr_auto]">
+      <div className="mt-8 grid gap-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 md:grid-cols-[1fr_auto]">
         <div>
           <h2 className="font-semibold">Beskrivning</h2>
           <p className="mt-2 max-w-2xl whitespace-pre-wrap">
@@ -67,12 +77,6 @@ export function SellerListingDetail({
           </p>
         </div>
         <dl className="grid grid-cols-2 gap-5 text-sm md:grid-cols-1">
-          <div>
-            <dt className="text-[var(--muted)]">Moms</dt>
-            <dd className="font-semibold">
-              {listing.deductibleVat ? "Avdragbar" : "Ej avdragbar"}
-            </dd>
-          </div>
           {listing.expiresAt ? (
             <div>
               <dt className="text-[var(--muted)]">
@@ -97,9 +101,6 @@ export function SellerListingDetail({
         equipment={listing.equipment}
         otherEquipment={listing.otherEquipment}
       />
-      {listing.status !== "draft" ? (
-        <SellerActivity listingId={listing.id} />
-      ) : null}
     </article>
   );
 }

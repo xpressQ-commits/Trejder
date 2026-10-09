@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { defaultLocale } from "./config";
-import { formatDate, formatMoney, translate, type TranslationKey } from "./index";
+import {
+  formatDate,
+  formatMoney,
+  formatNotification,
+  translate,
+  type TranslationKey,
+} from "./index";
 describe("i18n", () => {
   it("uses Swedish by default and translates navigation and errors", () => {
     expect(defaultLocale).toBe("sv");
@@ -19,11 +25,18 @@ describe("i18n", () => {
     expect(formatDate("en", date)).toMatch(/Oct 4/);
   });
   it("never exposes an undefined missing key", () => {
-    expect(translate("en", "missing.key" as TranslationKey)).toBe("missing.key");
+    expect(translate("en", "missing.key" as TranslationKey)).toBe(
+      "missing.key",
+    );
   });
   it("keeps internal enum values stable", () => {
     const status = "accepted";
     expect(status).toBe("accepted");
     expect(translate("en", "bids.accept")).toBe("Accept bid");
+  });
+  it("localizes rejected bid notifications", () => {
+    expect(formatNotification("sv", "bid.rejected", "fallback")).toBe(
+      "Ditt bud har avböjts.",
+    );
   });
 });

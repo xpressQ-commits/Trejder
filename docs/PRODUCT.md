@@ -32,7 +32,9 @@ Dealer onboarding remains approval-based. A public applicant may submit contact 
 
 - The marketplace shows every unexpired active listing, including the browsing dealer's own listings, newest first.
 - The seller sees listing-scoped labels such as `Bidgivare 1`, never bidder identity before acceptance.
+- A vehicle detail uses a wide gallery with a narrower activity column. Buyers see only anonymous bidder activity and a unique-bidder count; sellers see at most the three highest active bids and may accept or reject them.
 - A seller may accept any valid bid, not necessarily the highest.
+- Rejecting a bid closes only that bid, notifies its bidder and promotes the next-highest active bid into the seller's top-three view.
 - One listing can create at most one match.
 - Only the matched seller and buyer learn each other's identity and contact details.
 - Trejder Premium costs 699 SEK excluding VAT per dealer company/month and includes two active dealer users. Each additional active membership costs 199 SEK excluding VAT/month. Suspended/revoked memberships and pending invitations do not count.

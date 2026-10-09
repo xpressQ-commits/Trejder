@@ -10,7 +10,7 @@ import {
   primaryButtonClassName,
 } from "@/components/ui/form-controls";
 import { usePreferences } from "@/components/preferences/preferences-provider";
-import { formatMoney } from "@/i18n";
+import { formatDate, formatMoney } from "@/i18n";
 
 type Question = {
   id: string;
@@ -21,6 +21,11 @@ type Question = {
   createdAt: string;
 };
 type Bid = { id: string; amountOre: number; status: string };
+type PublicBidActivity = {
+  bidderCount: number;
+  activity: Array<{ anonymousLabel: string; createdAt: string }>;
+};
+
 export function MarketplaceInteractions({
   listingId,
   canBid,
@@ -34,11 +39,16 @@ export function MarketplaceInteractions({
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [ownBid, setOwnBid] = useState<Bid | null>(null);
+  const [publicActivity, setPublicActivity] = useState<PublicBidActivity>({
+    bidderCount: 0,
+    activity: [],
+  });
   const [message, setMessage] = useState<{
     type: "error" | "success";
     text: string;
   }>();
   const [pending, setPending] = useState(false);
+
   const load = useCallback(async () => {
     const [q, b] = await Promise.all([
       fetch(`/api/marketplace/${listingId}/questions`, { cache: "no-store" }),
@@ -46,7 +56,14 @@ export function MarketplaceInteractions({
     ]);
     if (q.ok)
       setQuestions(((await q.json()) as { questions: Question[] }).questions);
-    if (b.ok) setOwnBid(((await b.json()) as { bid: Bid | null }).bid);
+    if (b.ok) {
+      const result = (await b.json()) as {
+        bid: Bid | null;
+        publicActivity: PublicBidActivity;
+      };
+      setOwnBid(result.bid);
+      setPublicActivity(result.publicActivity);
+    }
   }, [listingId]);
   useEffect(() => {
     let active = true;
@@ -57,22 +74,31 @@ export function MarketplaceInteractions({
       if (!active) return;
       if (q.ok)
         setQuestions(((await q.json()) as { questions: Question[] }).questions);
-      if (b.ok) setOwnBid(((await b.json()) as { bid: Bid | null }).bid);
+      if (b.ok) {
+        const result = (await b.json()) as {
+          bid: Bid | null;
+          publicActivity: PublicBidActivity;
+        };
+        setOwnBid(result.bid);
+        setPublicActivity(result.publicActivity);
+      }
     });
     return () => {
       active = false;
     };
   }, [listingId]);
+
   async function bid(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setMessage(undefined);
     const data = new FormData(event.currentTarget);
-    const amountOre = Math.round(Number(data.get("amount")) * 100);
     const response = await fetch(`/api/marketplace/${listingId}/bids`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amountOre }),
+      body: JSON.stringify({
+        amountOre: Math.round(Number(data.get("amount")) * 100),
+      }),
     });
     const responseBody = (await response.json().catch(() => null)) as {
       error?: string;
@@ -91,6 +117,7 @@ export function MarketplaceInteractions({
     await load();
     setPending(false);
   }
+
   async function ask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -110,61 +137,86 @@ export function MarketplaceInteractions({
     await load();
     setPending(false);
   }
+
   return (
-    <div className="mt-9 space-y-8 border-t border-[var(--border)] pt-8">
+    <div className="space-y-6">
       {message ? (
         <FormMessage type={message.type}>{message.text}</FormMessage>
       ) : null}
-      {canBid && hasSubscriptionAccess ? (
-        <section>
-          <h2 className="text-xl font-semibold">{t("bids.place")}</h2>
-          {ownBid ? (
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              {t("bids.current")}:{" "}
-              <strong className="text-[var(--foreground)]">
-                {formatMoney(locale, ownBid.amountOre)}
-              </strong>
-            </p>
-          ) : null}
-          <form onSubmit={bid} className="mt-3 flex max-w-md gap-3">
-            <input
-              name="amount"
-              type="number"
-              min="1"
-              step="1"
-              required
-              aria-label={t("bids.amountPlaceholder")}
-              placeholder={t("bids.amountPlaceholder")}
-              className={inputClassName}
-            />
-            <button disabled={pending} className={primaryButtonClassName}>
-              {ownBid ? t("bids.update") : t("bids.place")}
-            </button>
-          </form>
-          {ownBid?.status === "accepted" ? (
-            <div className="mt-4">
-              <StartChatButton bidId={ownBid.id} canStart />
-            </div>
-          ) : null}
-        </section>
-      ) : canBid ? (
-        <section className="rounded-2xl border border-[var(--warning)] bg-[var(--warning-surface)] p-5">
-          <h2 className="text-xl font-semibold">
-            Premium krävs för att lägga bud
-          </h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Du kan fortsätta se hela marknaden. Aktivera eller förnya företagets
-            abonnemang för att lägga bud och ställa frågor.
-          </p>
-          <Link
-            href="/app/installningar?billing=required"
-            className={`${primaryButtonClassName} mt-4 inline-flex`}
-          >
-            Gå till abonnemang
-          </Link>
-        </section>
-      ) : null}
-      <section>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <h2 className="text-xl font-semibold">{t("bids.bidders")}</h2>
+        <p className="mt-1 text-sm font-semibold text-[var(--primary)]">
+          {publicActivity.bidderCount} {t("bids.totalBidders")}
+        </p>
+        <div className="mt-4 space-y-3">
+          {publicActivity.activity.length ? (
+            publicActivity.activity.map((item, index) => (
+              <div
+                key={`${item.anonymousLabel}-${item.createdAt}-${index}`}
+                className="rounded-xl border border-[var(--border)] p-3"
+              >
+                <p className="font-semibold">{item.anonymousLabel}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {t("bids.bidReceived")}{" "}
+                  {formatDate(locale, item.createdAt, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-[var(--muted)]">{t("bids.none")}</p>
+          )}
+        </div>
+        {canBid && hasSubscriptionAccess ? (
+          <div className="mt-5 border-t border-[var(--border)] pt-5">
+            <h3 className="font-semibold">{t("bids.place")}</h3>
+            {ownBid ? (
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                {t("bids.current")}:{" "}
+                <strong className="text-[var(--foreground)]">
+                  {formatMoney(locale, ownBid.amountOre)}
+                </strong>
+              </p>
+            ) : null}
+            <form
+              onSubmit={bid}
+              className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]"
+            >
+              <input
+                name="amount"
+                type="number"
+                min="1"
+                step="1"
+                required
+                aria-label={t("bids.amountPlaceholder")}
+                placeholder={t("bids.amountPlaceholder")}
+                className={inputClassName}
+              />
+              <button disabled={pending} className={primaryButtonClassName}>
+                {ownBid ? t("bids.update") : t("bids.place")}
+              </button>
+            </form>
+            {ownBid?.status === "accepted" ? (
+              <div className="mt-4">
+                <StartChatButton bidId={ownBid.id} canStart />
+              </div>
+            ) : null}
+          </div>
+        ) : canBid ? (
+          <div className="mt-5 border-t border-[var(--border)] pt-5">
+            <p className="font-semibold">Premium krävs för att lägga bud</p>
+            <Link
+              href="/app/installningar?billing=required"
+              className={`${primaryButtonClassName} mt-3 inline-flex`}
+            >
+              Gå till abonnemang
+            </Link>
+          </div>
+        ) : null}
+      </section>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-xl font-semibold">{t("questions.title")}</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           {t("questions.publicHint")}
@@ -193,7 +245,7 @@ export function MarketplaceInteractions({
           ))}
         </div>
         {canBid && hasSubscriptionAccess ? (
-          <form onSubmit={ask} className="mt-4 max-w-xl space-y-3">
+          <form onSubmit={ask} className="mt-4 space-y-3">
             <textarea
               name="body"
               required

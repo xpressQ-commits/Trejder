@@ -23,9 +23,13 @@ integration("private customer marketplace invariants", () => {
   const sellerCompany = randomUUID();
   const dealerA = randomUUID();
   const dealerB = randomUUID();
+  const dealerC = randomUUID();
+  const dealerD = randomUUID();
   const sellerUser = randomUUID();
   const dealerUserA = randomUUID();
   const dealerUserB = randomUUID();
+  const dealerUserC = randomUUID();
+  const dealerUserD = randomUUID();
   const listingId = randomUUID();
 
   beforeAll(async () => {
@@ -51,6 +55,18 @@ integration("private customer marketplace invariants", () => {
         email: `${dealerUserB}@example.test`,
         emailVerified: true,
       },
+      {
+        id: dealerUserC,
+        name: "Handlare C",
+        email: `${dealerUserC}@example.test`,
+        emailVerified: true,
+      },
+      {
+        id: dealerUserD,
+        name: "Handlare D",
+        email: `${dealerUserD}@example.test`,
+        emailVerified: true,
+      },
     ]);
     await db.insert(company).values([
       {
@@ -72,6 +88,18 @@ integration("private customer marketplace invariants", () => {
         organizationNumber: `B${randomUUID().slice(0, 12)}`,
         contactEmail: `${dealerUserB}@example.test`,
       },
+      {
+        id: dealerC,
+        legalName: "Dealer C AB",
+        organizationNumber: `C${randomUUID().slice(0, 12)}`,
+        contactEmail: `${dealerUserC}@example.test`,
+      },
+      {
+        id: dealerD,
+        legalName: "Dealer D AB",
+        organizationNumber: `D${randomUUID().slice(0, 12)}`,
+        contactEmail: `${dealerUserD}@example.test`,
+      },
     ]);
     await db.insert(companyMembership).values([
       {
@@ -81,30 +109,30 @@ integration("private customer marketplace invariants", () => {
       },
       { companyId: dealerA, userId: dealerUserA, role: "trader" },
       { companyId: dealerB, userId: dealerUserB, role: "trader" },
+      { companyId: dealerC, userId: dealerUserC, role: "trader" },
+      { companyId: dealerD, userId: dealerUserD, role: "trader" },
     ]);
-    await db
-      .insert(vehicleListing)
-      .values({
-        id: listingId,
-        sellerCompanyId: sellerCompany,
-        createdByUserId: sellerUser,
-        inputKind: "model",
-        vehicleModel: "Volvo XC60",
-        modelYear: 2025,
-        mileageKm: 1000,
-        shortComment: "Testbil",
-        deductibleVat: false,
-        status: "active",
-        publishedAt: new Date(),
-        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-      });
+    await db.insert(vehicleListing).values({
+      id: listingId,
+      sellerCompanyId: sellerCompany,
+      createdByUserId: sellerUser,
+      inputKind: "model",
+      vehicleModel: "Volvo XC60",
+      modelYear: 2025,
+      mileageKm: 1000,
+      shortComment: "Testbil",
+      deductibleVat: false,
+      status: "active",
+      publishedAt: new Date(),
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+    });
   });
 
   afterAll(async () => {
     if (!testDatabaseUrl) return;
     const { getDb } = await import("@/server/db");
     const db = getDb();
-    const companies = [sellerCompany, dealerA, dealerB];
+    const companies = [sellerCompany, dealerA, dealerB, dealerC, dealerD];
     await db
       .delete(notification)
       .where(
@@ -112,6 +140,8 @@ integration("private customer marketplace invariants", () => {
           sellerUser,
           dealerUserA,
           dealerUserB,
+          dealerUserC,
+          dealerUserD,
         ]),
       );
     await db
@@ -136,7 +166,15 @@ integration("private customer marketplace invariants", () => {
     await db.delete(company).where(inArray(company.id, companies));
     await db
       .delete(user)
-      .where(inArray(user.id, [sellerUser, dealerUserA, dealerUserB]));
+      .where(
+        inArray(user.id, [
+          sellerUser,
+          dealerUserA,
+          dealerUserB,
+          dealerUserC,
+          dealerUserD,
+        ]),
+      );
   });
 
   it("uses one stable listing alias for a dealer's question and bid", async () => {
@@ -208,8 +246,86 @@ integration("private customer marketplace invariants", () => {
     ).resolves.toMatchObject({ body: "Finns vinterhjul?" });
   });
 
+  it("returns anonymous public activity, limits seller bids to top three and rejects atomically", async () => {
+    const { getDb } = await import("@/server/db");
+    const { listPublicBidActivity, listSellerBids, placeBid, rejectBid } =
+      await import("./bids");
+    await placeBid({
+      listingId,
+      bidderCompanyId: dealerC,
+      actorUserId: dealerUserC,
+      amountOre: 18_000_000,
+    });
+    const highest = await placeBid({
+      listingId,
+      bidderCompanyId: dealerD,
+      actorUserId: dealerUserD,
+      amountOre: 21_000_000,
+    });
+
+    const publicActivity = await listPublicBidActivity(listingId);
+    expect(publicActivity.bidderCount).toBe(4);
+    expect(JSON.stringify(publicActivity)).not.toMatch(
+      /Dealer [A-D] AB|companyId|userId|amountOre/i,
+    );
+    const before = await listSellerBids(listingId, sellerCompany);
+    expect(before.totalActiveBidders).toBe(4);
+    expect(before.bids).toHaveLength(3);
+    expect(before.bids.map((item) => item.amountOre)).toEqual([
+      21_000_000, 20_000_000, 19_000_000,
+    ]);
+
+    await expect(
+      rejectBid({
+        listingId,
+        bidId: highest.id,
+        sellerCompanyId: dealerA,
+        actorUserId: dealerUserA,
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "LISTING_NOT_FOUND" });
+    await rejectBid({
+      listingId,
+      bidId: highest.id,
+      sellerCompanyId: sellerCompany,
+      actorUserId: sellerUser,
+    });
+    await expect(
+      rejectBid({
+        listingId,
+        bidId: highest.id,
+        sellerCompanyId: sellerCompany,
+        actorUserId: sellerUser,
+      }),
+    ).rejects.toMatchObject({ status: 409, code: "BID_NOT_ACTIVE" });
+    const after = await listSellerBids(listingId, sellerCompany);
+    expect(after.totalActiveBidders).toBe(3);
+    expect(after.bids.map((item) => item.amountOre)).toEqual([
+      20_000_000, 19_000_000, 18_000_000,
+    ]);
+    const [rejected] = await getDb()
+      .select()
+      .from(bid)
+      .where(eq(bid.id, highest.id));
+    expect(rejected.status).toBe("rejected");
+    const [rejectedNotice] = await getDb()
+      .select()
+      .from(notification)
+      .where(
+        and(
+          eq(notification.recipientUserId, dealerUserD),
+          eq(notification.type, "bid.rejected"),
+        ),
+      );
+    expect(rejectedNotice).toMatchObject({
+      readAt: null,
+      resourceType: "listing",
+      resourceId: listingId,
+      metadata: { listingId, bidId: highest.id, amountOre: 21_000_000 },
+    });
+  });
+
   it("atomically accepts one bid, loses the others and reveals only the matched identities", async () => {
-    const { acceptBid } = await import("./bids");
+    const { acceptBid, rejectBid } = await import("./bids");
     const { getDb } = await import("@/server/db");
     const bids = await getDb()
       .select()
@@ -222,6 +338,14 @@ integration("private customer marketplace invariants", () => {
       sellerCompanyId: sellerCompany,
       actorUserId: sellerUser,
     });
+    await expect(
+      rejectBid({
+        listingId,
+        bidId: winning.id,
+        sellerCompanyId: sellerCompany,
+        actorUserId: sellerUser,
+      }),
+    ).rejects.toMatchObject({ code: "LISTING_NOT_ACTIVE" });
     const rows = await getDb()
       .select()
       .from(bid)

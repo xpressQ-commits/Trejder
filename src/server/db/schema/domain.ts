@@ -57,6 +57,7 @@ export const bidStatus = pgEnum("bid_status", [
   "active",
   "withdrawn",
   "accepted",
+  "rejected",
   "lost",
   "expired",
 ]);
@@ -689,6 +690,7 @@ export const notification = pgTable(
     body: varchar("body", { length: 240 }).notNull(),
     resourceType: varchar("resource_type", { length: 40 }).notNull(),
     resourceId: text("resource_id").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

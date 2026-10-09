@@ -37,6 +37,13 @@ describe("push notifications", () => {
     ).toBe("/app/affarer/match-1");
     expect(
       notificationUrl({
+        type: "bid.rejected",
+        resourceType: "listing",
+        resourceId: "listing-1",
+      }),
+    ).toBe("/app/marknad/listing-1");
+    expect(
+      notificationUrl({
         type: "unknown",
         resourceType: "unknown",
         resourceId: "unknown",
