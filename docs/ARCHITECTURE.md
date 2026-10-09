@@ -79,6 +79,16 @@ Expiry is query-derived from the database clock boundary (`expires_at`) rather t
 
 ## Configuration
 
+### Deployment environments
+
+- `main` is the production release branch and deploys only to Railway `production` at `https://trejder.se`.
+- `staging` is the persistent integration branch and deploys only to Railway `staging`. Its canonical fallback URL is `https://trejder-staging.up.railway.app`; `https://staging.trejder.se` may replace it after DNS verification.
+- Each Railway environment owns a separate PostgreSQL service and volume. Environment-scoped `DATABASE_URL` and `TEST_DATABASE_URL` references must resolve to that environment's `Postgres` service; production database credentials must never be copied into staging.
+- `APP_ENV=staging` enables the visible staging badge. Production omits the variable, so the badge cannot appear there.
+- Staging uses its own `BETTER_AUTH_URL`, a clearly named transactional-email sender, and Stripe test-mode credentials. Host-only authentication cookies keep staging and production sessions separate.
+- Railway runs committed Drizzle migrations as a pre-deploy command. A release promotes code and migration files through a pull request from `staging` to `main`; it never promotes the staging database or its data.
+- Production releases are pull-request merges to `main`. Direct pushes, force pushes and branch deletion should be blocked by the repository ruleset; status checks become required only after stable CI exists.
+
 See `.env.example`. Runtime secrets are never committed. `DATABASE_URL` and a minimum 32-character `BETTER_AUTH_SECRET` are required when the auth/database path is invoked. Billing additionally requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM_MONTHLY`, `STRIPE_PRICE_EXTRA_USER_MONTHLY` and a separate 32+ character `BILLING_SYNC_SECRET`. Stripe Prices must be recurring monthly, SEK, tax-exclusive, with the extra-user Price configured as licensed quantity. Customer Portal must allow payment methods, invoices and billing details while subscription plan/quantity changes remain disabled so Trejder's server-owned pricing cannot be bypassed.
 
 Before production billing, the Stripe Dashboard must contain two active tax-exclusive monthly SEK Prices: Trejder Premium at 699 SEK and Trejder Extra User at 199 SEK licensed per unit. Configure the Customer Portal for payment methods, invoices and billing details only; customers must not switch Prices or quantities. Register the production webhook URL for `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `checkout.session.completed` and `checkout.session.expired`. Stripe Tax is not enabled by this phase; the business must finish its VAT/tax configuration before live charges.

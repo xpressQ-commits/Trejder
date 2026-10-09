@@ -33,6 +33,7 @@ export function AppShell({
   role,
   companies,
   isPlatformAdmin = false,
+  isStaging = false,
   initialNotifications,
   initialUnreadChatCount,
 }: {
@@ -43,6 +44,7 @@ export function AppShell({
   role: "admin" | "trader" | "viewer" | "private_customer";
   companies: CompanyOption[];
   isPlatformAdmin?: boolean;
+  isStaging?: boolean;
   initialNotifications: HeaderNotification[];
   initialUnreadChatCount: number;
 }) {
@@ -109,6 +111,11 @@ export function AppShell({
             <span className="hidden text-xl font-semibold tracking-[-0.04em] sm:inline">
               Trejder
             </span>
+            {isStaging ? (
+              <span className="rounded-full border border-amber-300/60 bg-amber-300/15 px-2 py-0.5 text-[0.65rem] font-bold tracking-[0.12em] text-amber-100 uppercase">
+                Staging
+              </span>
+            ) : null}
           </Link>
           <div className="flex items-center gap-2 lg:hidden">
             <NotificationBell

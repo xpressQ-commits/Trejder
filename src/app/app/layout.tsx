@@ -65,6 +65,7 @@ export default async function DealerLayout({
       role={selected.role}
       companies={companies}
       isPlatformAdmin={isPlatformAdmin}
+      isStaging={process.env.APP_ENV === "staging"}
       initialNotifications={notifications.map((item) => ({
         ...item,
         createdAt: item.createdAt.toISOString(),
