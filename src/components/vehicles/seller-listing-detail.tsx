@@ -37,7 +37,7 @@ export function SellerListingDetail({
         {dealId ? (
           <Link
             href={`/app/affarer/${dealId}`}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--primary)] px-4 font-semibold text-white hover:opacity-90"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--primary)] px-4 font-semibold text-white hover:opacity-90 lg:mt-12"
           >
             <Handshake size={17} />
             Öppna affär
@@ -47,7 +47,7 @@ export function SellerListingDetail({
           listing.status !== "matched" ? (
           <Link
             href={`/app/bilar/${listing.id}/redigera`}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 font-semibold hover:bg-[var(--surface-subtle)]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 font-semibold hover:bg-[var(--surface-subtle)] lg:mt-12"
           >
             <Pencil size={17} />
             Redigera annons
