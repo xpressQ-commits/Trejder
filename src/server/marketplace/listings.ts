@@ -15,18 +15,26 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import type { VehicleIdentifier } from "@/domain/vehicle-listing";
+import {
+  normalizeDeviations,
+  type ListingDeviation,
+} from "@/domain/listing-details";
 import { canViewRegistrationNumber } from "@/domain/registration-number";
 import { normalizeEquipment, type EquipmentKey } from "@/domain/equipment";
 import { getDb } from "@/server/db";
 import {
   company,
   companyMembership,
+  damageImage,
+  listingDocument,
   user,
   vehicleImage,
   vehicleListing,
 } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
 import { getImageStorage } from "@/server/storage/images";
+import { createBlurredPreview } from "@/server/storage/image-variants";
+import { canViewFullListingImage } from "@/domain/image-access";
 
 const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 24;
@@ -38,6 +46,7 @@ export type MarketplaceListingSummaryDto = {
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  county: string | null;
   equipment: EquipmentKey[];
   otherEquipment: string | null;
   deductibleVat: boolean;
@@ -48,6 +57,16 @@ export type MarketplaceListingSummaryDto = {
 };
 export type MarketplaceListingDetailDto = MarketplaceListingSummaryDto & {
   registrationNumber: string | null;
+  deviations: ListingDeviation[];
+  wantedComment: string | null;
+  damageImages: MarketplaceImageDto[];
+  documents: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    byteSize: number;
+    url: string;
+  }>;
   publisher: {
     kind: "dealer" | "private";
     companyName: string;
@@ -98,6 +117,9 @@ type MarketplaceRow = {
   mileageKm: number;
   modelYear: number | null;
   shortComment: string;
+  county: string | null;
+  deviations: ListingDeviation[];
+  wantedComment: string | null;
   equipment: string[];
   otherEquipment: string | null;
   deductibleVat: boolean;
@@ -119,6 +141,7 @@ function toDto(
     mileageMil: row.mileageKm / 10,
     modelYear: row.modelYear,
     shortComment: row.shortComment,
+    county: row.county,
     equipment: normalizeEquipment(row.equipment),
     otherEquipment: row.otherEquipment,
     deductibleVat: row.deductibleVat,
@@ -140,6 +163,9 @@ const marketplaceSelection = {
   mileageKm: vehicleListing.mileageKm,
   modelYear: vehicleListing.modelYear,
   shortComment: vehicleListing.shortComment,
+  county: vehicleListing.county,
+  deviations: vehicleListing.deviations,
+  wantedComment: vehicleListing.wantedComment,
   equipment: vehicleListing.equipment,
   otherEquipment: vehicleListing.otherEquipment,
   deductibleVat: vehicleListing.deductibleVat,
@@ -279,6 +305,24 @@ export async function getMarketplaceListing(
       ),
     )
     .orderBy(asc(vehicleImage.position));
+  const damageImages = await db
+    .select({
+      position: damageImage.position,
+      status: damageImage.plateRedactionStatus,
+    })
+    .from(damageImage)
+    .where(eq(damageImage.listingId, row.id))
+    .orderBy(asc(damageImage.position));
+  const documents = await db
+    .select({
+      id: listingDocument.id,
+      name: listingDocument.originalName,
+      mimeType: listingDocument.mimeType,
+      byteSize: listingDocument.byteSize,
+    })
+    .from(listingDocument)
+    .where(eq(listingDocument.listingId, row.id))
+    .orderBy(asc(listingDocument.createdAt));
   const detail = toDto(
     row as MarketplaceRow,
     images.filter(
@@ -321,6 +365,22 @@ export async function getMarketplaceListing(
     })
       ? row.registrationNumber
       : null,
+    deviations: normalizeDeviations(row.deviations),
+    wantedComment: row.wantedComment,
+    damageImages: damageImages
+      .filter(
+        (image) =>
+          row.showRegistrationNumber ||
+          ["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status),
+      )
+      .map(({ position }) => ({
+        position,
+        url: `/api/marketplace/${row.id}/damage-images/${position}`,
+      })),
+    documents: documents.map((document) => ({
+      ...document,
+      url: `/api/marketplace/${row.id}/documents/${document.id}`,
+    })),
     publisher: publisher
       ? {
           kind: publisher.kind,
@@ -338,11 +398,15 @@ export async function readMarketplaceListingImage(input: {
   activeCompanyId: string;
   listingId: string;
   position: number;
+  hasMarketplaceAccess?: boolean;
+  canViewPrivilegedDetails?: boolean;
 }): Promise<{ bytes: Uint8Array; mimeType: string }> {
   const [image] = await getDb()
     .select({
       objectKey: vehicleImage.objectKey,
+      blurredObjectKey: vehicleImage.blurredObjectKey,
       mimeType: vehicleImage.mimeType,
+      sellerCompanyId: vehicleListing.sellerCompanyId,
     })
     .from(vehicleImage)
     .innerJoin(vehicleListing, eq(vehicleListing.id, vehicleImage.listingId))
@@ -367,8 +431,108 @@ export async function readMarketplaceListingImage(input: {
     )
     .limit(1);
   if (!image) throw new AccessError(404, "IMAGE_NOT_FOUND");
+  const canReadFull = canViewFullListingImage({
+    isSeller: image.sellerCompanyId === input.activeCompanyId,
+    isPrivilegedAdmin: input.canViewPrivilegedDetails ?? false,
+    hasActiveMarketplaceAccess: input.hasMarketplaceAccess ?? false,
+  });
+  const storage = getImageStorage();
+  if (!canReadFull) {
+    if (image.blurredObjectKey) {
+      return {
+        bytes: await storage.read(image.blurredObjectKey),
+        mimeType: "image/webp",
+      };
+    }
+    const fallback = await createBlurredPreview(await storage.read(image.objectKey));
+    return fallback;
+  }
   return {
-    bytes: await getImageStorage().read(image.objectKey),
+    bytes: await storage.read(image.objectKey),
     mimeType: image.mimeType,
+  };
+}
+
+export async function readMarketplaceDamageImage(input: {
+  activeCompanyId: string;
+  listingId: string;
+  position: number;
+  hasMarketplaceAccess: boolean;
+  canViewPrivilegedDetails?: boolean;
+}) {
+  const [image] = await getDb()
+    .select({
+      objectKey: damageImage.objectKey,
+      blurredObjectKey: damageImage.blurredObjectKey,
+      mimeType: damageImage.mimeType,
+      sellerCompanyId: vehicleListing.sellerCompanyId,
+    })
+    .from(damageImage)
+    .innerJoin(vehicleListing, eq(vehicleListing.id, damageImage.listingId))
+    .where(
+      and(
+        eq(damageImage.listingId, input.listingId),
+        eq(damageImage.position, input.position),
+        or(
+          eq(vehicleListing.showRegistrationNumber, true),
+          inArray(damageImage.plateRedactionStatus, [
+            "NO_PLATE_DETECTED",
+            "PLATE_REDACTED",
+          ]),
+        ),
+        eq(vehicleListing.status, "active"),
+        isNotNull(vehicleListing.publishedAt),
+        or(
+          isNull(vehicleListing.expiresAt),
+          gt(vehicleListing.expiresAt, new Date()),
+        ),
+      ),
+    )
+    .limit(1);
+  if (!image) throw new AccessError(404, "IMAGE_NOT_FOUND");
+  const canReadFull = canViewFullListingImage({
+    isSeller: image.sellerCompanyId === input.activeCompanyId,
+    isPrivilegedAdmin: input.canViewPrivilegedDetails ?? false,
+    hasActiveMarketplaceAccess: input.hasMarketplaceAccess,
+  });
+  const storage = getImageStorage();
+  return canReadFull
+    ? { bytes: await storage.read(image.objectKey), mimeType: image.mimeType }
+    : {
+        bytes: await storage.read(image.blurredObjectKey),
+        mimeType: "image/webp",
+      };
+}
+
+export async function readMarketplaceListingDocument(input: {
+  listingId: string;
+  documentId: string;
+}) {
+  const [document] = await getDb()
+    .select({
+      objectKey: listingDocument.objectKey,
+      mimeType: listingDocument.mimeType,
+      originalName: listingDocument.originalName,
+    })
+    .from(listingDocument)
+    .innerJoin(vehicleListing, eq(vehicleListing.id, listingDocument.listingId))
+    .where(
+      and(
+        eq(listingDocument.id, input.documentId),
+        eq(listingDocument.listingId, input.listingId),
+        eq(vehicleListing.status, "active"),
+        isNotNull(vehicleListing.publishedAt),
+        or(
+          isNull(vehicleListing.expiresAt),
+          gt(vehicleListing.expiresAt, new Date()),
+        ),
+      ),
+    )
+    .limit(1);
+  if (!document) throw new AccessError(404, "DOCUMENT_NOT_FOUND");
+  return {
+    bytes: await getImageStorage().read(document.objectKey),
+    mimeType: document.mimeType,
+    name: document.originalName,
   };
 }

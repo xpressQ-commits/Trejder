@@ -8,13 +8,13 @@ Trejder is a responsive Swedish dealer-to-dealer vehicle marketplace. It should 
 
 Publishing stays deliberately short:
 
-`Registration number + vehicle model -> model year (1950 through next year) -> mileage -> short comment -> deductible VAT yes/no -> registration visibility -> publication duration (48–120 hours) -> 1–5 images -> publish`
+`Registration number + vehicle model -> model year (1950 through next year) -> mileage -> optional postcode/location -> equipment and optional deviations -> optional comment -> deductible VAT yes/no -> registration visibility -> publication duration (48–120 hours) -> 1–5 vehicle images -> optional damage images/documents -> publish`
 
 Expired listings move to the seller's **Inaktiva** view. They can be republished as the same listing with a newly selected duration; this starts a new bid round and never reactivates bids from an earlier round.
 
 There is no automatic vehicle lookup. Never invent specifications from a registration number or model.
 
-Phase 2 implements this as one Swedish, mobile-first form. The seller decides before uploading images whether the registration number is visible. Hidden registrations trigger server-side plate detection and local blur; visible registrations skip the external detector. The visibility choice locks when the first image is uploaded. The dealer's own `/app/bilar` area contains only its active listings, drafts and withdrawn listings; it is not a marketplace feed.
+Phase 2 implements this as one Swedish, mobile-first form. Comment, deviations, damage images and documents are optional. A listing may contain up to five vehicle images, five separately displayed damage images and ten protected documents. A Swedish postcode lookup derives locality and county; only county is shown in marketplace metadata. The seller decides before uploading any vehicle or damage image whether the registration number is visible. Hidden registrations trigger server-side plate detection and local blur for both image categories; visible registrations skip the external detector. The visibility choice locks when the first vehicle or damage image is uploaded. The dealer's own `/app/bilar` area contains only its active listings, drafts and withdrawn listings; it is not a marketplace feed.
 
 ## Account model
 
@@ -51,6 +51,8 @@ A verified `PRIVATE_CUSTOMER` may publish and manage only their own vehicles, re
 The server is authoritative for both membership and subscription access. Manual block, manual Premium, active free access and Stripe state are evaluated in that precedence order. A Stripe webhook cannot erase a manual decision. Free access has an explicit end instant and expires to Obetald unless a lower-precedence active Stripe subscription applies. Gratis cannot be granted while a live Stripe subscription exists, preventing accidental parallel charging; the subscription must first be ended in Stripe.
 
 An active dealer membership may always sign in, browse the marketplace and open company settings. Obetald blocks dealer mutations, including bidding and asking questions, rather than blocking login or marketplace reads. A blocked bid attempt leads to Settings, where every dealer user can see subscription state and an ADMIN can start, renew or manage billing. Dealer company details, subscription status and ADMIN user management live together under Settings.
+
+Marketplace images are entitlement-sensitive. Sellers and privileged administrators receive the stored full processed image. A dealer with active Premium, free access or another central entitlement receives that same variant. An inactive or unpaid dealer receives only a separately generated, heavily blurred preview for both vehicle and damage images; the original object key is never serialized.
 
 ## Current non-goals
 

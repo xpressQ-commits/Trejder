@@ -9,7 +9,10 @@ import {
   getImageStorage,
   isTransientStorageError,
   MAX_IMAGE_BYTES,
+  MAX_DOCUMENT_BYTES,
+  sanitizeDocumentName,
   storageErrorLogFields,
+  validateDocument,
   validateImage,
   withTransientStorageRetry,
 } from "./images";
@@ -42,6 +45,22 @@ describe("private vehicle image validation", () => {
   it("rejects oversized files", () => {
     expect(() => validateImage(new Uint8Array(MAX_IMAGE_BYTES + 1), "image/jpeg"))
       .toThrowError(expect.objectContaining({ code: "INVALID_IMAGE_SIZE" }));
+  });
+
+  it("accepts structurally valid PDFs and rejects scripts or oversized documents", () => {
+    const pdf = new TextEncoder().encode("%PDF-1.7\nexample\n%%EOF");
+    expect(validateDocument(pdf, "application/pdf")).toMatchObject({
+      mimeType: "application/pdf",
+      byteSize: pdf.length,
+    });
+    expect(() => validateDocument(new TextEncoder().encode("alert(1)"), "text/javascript"))
+      .toThrowError(expect.objectContaining({ code: "INVALID_DOCUMENT_TYPE" }));
+    expect(() => validateDocument(new Uint8Array(MAX_DOCUMENT_BYTES + 1), "application/pdf"))
+      .toThrowError(expect.objectContaining({ code: "INVALID_DOCUMENT_SIZE" }));
+  });
+
+  it("sanitizes document names and removes path traversal", () => {
+    expect(sanitizeDocumentName("../../servicehistorik.pdf")).toBe("servicehistorik.pdf");
   });
 
   it("creates opaque, non-enumerable keys without tenant or listing identifiers", () => {

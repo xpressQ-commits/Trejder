@@ -56,7 +56,7 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 ## Operational boundaries
 
 - Migrations run with a migration owner; runtime should use a less-privileged PostgreSQL role.
-- Vehicle originals live in private storage. Development uses an ignored local directory through the same `PrivateImageStorage` contract. Production uses a private Cloudflare R2 bucket through the S3-compatible adapter; objects are never exposed by public bucket URL.
+- Vehicle images, damage images and listing documents live in private storage. Development uses an ignored local directory through the same private-storage contract. Production uses a private Cloudflare R2 bucket through the S3-compatible adapter; objects are never exposed by public bucket URL.
 - The application is deployed as one service plus PostgreSQL and object storage.
 - Plate detection is synchronous and server-side through a narrow provider adapter. The current provider is Plate Recognizer Snapshot Cloud; Sharp performs EXIF normalization and local blurring. No queue is introduced at the current volume.
 - Observability must avoid bidder identity in seller-facing logs, errors, analytics and URLs.
@@ -70,6 +70,12 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 - A Railway cron invokes `POST /api/internal/billing/seat-sync` with `Authorization: Bearer $BILLING_SYNC_SECRET`; the endpoint drains bounded pending/failed sync rows. The random bearer value is separate from Stripe credentials.
 
 Authorized image reads go through a tenant-scoped application route. DTOs contain that route, never the underlying object key. Object keys are opaque values with 256 random bits and contain no tenant or listing identifier; the bucket remains private.
+
+Image upload produces two durable variants after EXIF normalization and optional plate redaction: the full processed object and a bounded, heavily blurred WebP preview. Marketplace image routes reload central subscription/free/platform entitlement on every request and select one variant server-side. They use `private, no-store`; CSS blur is not a security boundary. Legacy images without a stored preview are blurred server-side as a compatibility fallback until replaced.
+
+Document upload shares the private object-store boundary but has its own allow-list (PDF, JPEG and PNG), 15 MB object limit, ten-document listing limit, content-signature checks and sanitized filenames. Protected routes use fresh listing/company authorization, `nosniff`, restrictive CSP and safe content disposition.
+
+Postcode autocomplete is proxied server-side through Zippopotam.us using its Swedish GeoNames-backed dataset, a five-second timeout and daily framework cache. The application stores only the selected five-digit postcode, locality and normalized Swedish county; no street address or coordinates enter the listing model.
 
 Marketplace reads use dedicated allow-listed DTOs and fresh active-company authorization. Queries expose only active listings owned by other companies and use bounded cursor pagination. Ordinary marketplace projections never select seller identity; a separately authorized detail projection may select the publishing account's allow-listed contact fields for an active company ADMIN or platform administrator. Marketplace image routes repeat the same active/non-owner predicate at read time.
 

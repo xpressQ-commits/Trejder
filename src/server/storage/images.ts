@@ -12,11 +12,16 @@ import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { AccessError } from "@/server/security";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
+export const MAX_DOCUMENTS_PER_LISTING = 10;
 const supported = ["image/jpeg", "image/png", "image/webp"] as const;
 export type SupportedImageMime = (typeof supported)[number];
+const supportedDocuments = ["application/pdf", "image/jpeg", "image/png"] as const;
+export type SupportedDocumentMime = (typeof supportedDocuments)[number];
+type SupportedPrivateMime = SupportedImageMime | SupportedDocumentMime;
 
 export interface PrivateImageStorage {
-  put(key: string, bytes: Uint8Array, mimeType: SupportedImageMime): Promise<void>;
+  put(key: string, bytes: Uint8Array, mimeType: SupportedPrivateMime): Promise<void>;
   delete(key: string): Promise<void>;
   read(key: string): Promise<Uint8Array>;
 }
@@ -110,6 +115,50 @@ export function createPrivateObjectKey(mime: SupportedImageMime): string {
   return `private/${randomBytes(32).toString("hex")}.${ext}`;
 }
 
+export function validateDocument(
+  bytes: Uint8Array,
+  claimedMime: string,
+): {
+  mimeType: SupportedDocumentMime;
+  byteSize: number;
+  checksumSha256: string;
+} {
+  if (bytes.length === 0 || bytes.length > MAX_DOCUMENT_BYTES) {
+    throw new AccessError(400, "INVALID_DOCUMENT_SIZE");
+  }
+  if (!supportedDocuments.includes(claimedMime as SupportedDocumentMime)) {
+    throw new AccessError(400, "INVALID_DOCUMENT_TYPE");
+  }
+  if (claimedMime === "image/jpeg" || claimedMime === "image/png") {
+    const image = validateImage(bytes, claimedMime);
+    return { ...image, mimeType: claimedMime as SupportedDocumentMime };
+  }
+  const header = new TextDecoder().decode(bytes.slice(0, 5));
+  const trailer = new TextDecoder().decode(bytes.slice(Math.max(0, bytes.length - 1024)));
+  if (header !== "%PDF-" || !trailer.includes("%%EOF")) {
+    throw new AccessError(400, "INVALID_DOCUMENT_TYPE");
+  }
+  return {
+    mimeType: "application/pdf" as const,
+    byteSize: bytes.length,
+    checksumSha256: createHash("sha256").update(bytes).digest("hex"),
+  };
+}
+
+export function sanitizeDocumentName(value: string): string {
+  const base = path.basename(value).replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  const normalized = base.replace(/[^\p{L}\p{N}._ ()-]/gu, "_").slice(0, 200);
+  if (!normalized || normalized === "." || normalized === "..") {
+    throw new AccessError(400, "INVALID_DOCUMENT_NAME");
+  }
+  return normalized;
+}
+
+export function createPrivateDocumentObjectKey(mime: SupportedDocumentMime): string {
+  const ext = mime === "application/pdf" ? "pdf" : mime === "image/jpeg" ? "jpg" : "png";
+  return `private/documents/${randomBytes(32).toString("hex")}.${ext}`;
+}
+
 class LocalPrivateStorage implements PrivateImageStorage {
   constructor(private readonly root: string) {}
   private resolve(key: string) {
@@ -149,7 +198,7 @@ class R2PrivateStorage implements PrivateImageStorage {
     });
   }
 
-  async put(key: string, bytes: Uint8Array, mimeType: SupportedImageMime) {
+  async put(key: string, bytes: Uint8Array, mimeType: SupportedPrivateMime) {
     await withTransientStorageRetry(() => this.client.send(new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,

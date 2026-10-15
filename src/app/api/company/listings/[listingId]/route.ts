@@ -10,7 +10,7 @@ import {
   updateOwnListing,
 } from "@/server/vehicles/listings";
 import {
-  listingInputSchema,
+  listingInputObjectSchema,
   parseListingId,
   requireListingContext,
 } from "@/server/vehicles/http";
@@ -30,10 +30,20 @@ export async function GET(
   }
 }
 
-const patchSchema = listingInputSchema
+const patchSchema = listingInputObjectSchema
   .partial()
   .strict()
-  .refine((value) => Object.keys(value).length > 0);
+  .refine((value) => Object.keys(value).length > 0)
+  .refine(
+    (value) =>
+      [value.postalCode, value.locality, value.county].every(
+        (item) => item === undefined,
+      ) ||
+      [value.postalCode, value.locality, value.county].every(
+        (item) => item !== undefined,
+      ),
+    "Location must be complete",
+  );
 
 export async function PATCH(
   request: Request,

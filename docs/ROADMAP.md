@@ -48,6 +48,10 @@ Transactional acceptance of any valid bid, concurrency/idempotency tests, immuta
 
 Expired listings are separated into the seller's Inaktiva view and may be republished as the same listing into a new bid round. Previous-round bids remain terminal. The protected PWT Invest AB platform-owner company may publish without an expiry and is centrally exempt from subscription, extra-seat and its own side of match fees; a normal counterparty remains unchanged. Migration `0020` backfills the company by normalized organization number and adds the policy and publication-round fields.
 
+## Listing detail enrichment and protected media (implemented in code)
+
+Optional comments, postcode-derived county, structured deviations, up to five separate damage images and up to ten protected documents extend create/edit/detail without creating a wizard. Damage images share the plate-redaction policy. Migration `0023` adds the listing fields and separate media records. Marketplace image delivery enforces the central access entitlement server-side and returns only a pre-generated blurred preview to inactive/unpaid dealers.
+
 ## Phase 6 — Private sellers (approved)
 
 Verified private-customer onboarding, seller-only navigation and listings, anonymous public Q&A, dealer bidding, bid-gated anonymous messaging, transactional acceptance, matched-party identity reveal, retained-history deal chat and identity-safe notifications.

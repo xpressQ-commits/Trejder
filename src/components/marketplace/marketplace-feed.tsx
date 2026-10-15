@@ -192,10 +192,13 @@ function MarketplaceCard({
           <p className="mt-0.5 text-sm text-[var(--muted)]">
             {listing.modelYear ? `${listing.modelYear} · ` : ""}
             {formatMileage(listing.mileageMil, locale)} mil
+            {listing.county ? ` · ${listing.county}` : ""}
           </p>
-          <p className="mt-3 line-clamp-2 min-h-10 text-sm">
-            {listing.shortComment}
-          </p>
+          {listing.shortComment ? (
+            <p className="mt-3 line-clamp-2 min-h-10 text-sm">
+              {listing.shortComment}
+            </p>
+          ) : null}
           <div className="mt-3 flex flex-wrap items-end justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs">
             <span className="font-medium">
               {listing.deductibleVat ? vatYes : vatNo}

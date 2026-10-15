@@ -33,6 +33,11 @@ describe("marketplace detail layout", () => {
           modelYear: 2026,
           mileageMil: 1450,
           shortComment: "Fin bil",
+          county: null,
+          deviations: [],
+          wantedComment: null,
+          damageImages: [],
+          documents: [],
           equipment: [],
           otherEquipment: null,
           deductibleVat: true,
@@ -82,6 +87,11 @@ describe("marketplace detail layout", () => {
           modelYear: 2025,
           mileageMil: 1200,
           shortComment: "Fin bil",
+          county: "Stockholms län",
+          deviations: [],
+          wantedComment: null,
+          damageImages: [],
+          documents: [],
           equipment: [],
           otherEquipment: null,
           deductibleVat: false,
@@ -102,5 +112,39 @@ describe("marketplace detail layout", () => {
       "href",
       "mailto:anna@example.test",
     );
+  });
+
+  it("hides an empty description and shows deviation details and county", () => {
+    render(
+      <MarketplaceDetail
+        listing={{
+          id: "11111111-1111-4111-8111-111111111111",
+          identifier: { kind: "model", value: "Volvo XC60" },
+          registrationNumber: null,
+          publisher: null,
+          modelYear: 2025,
+          mileageMil: 1200,
+          shortComment: "",
+          county: "Stockholms län",
+          deviations: ["WAS_WANTED", "REPAIRED"],
+          wantedComment: "Återfunnen oskadad.",
+          damageImages: [],
+          documents: [],
+          equipment: [],
+          otherEquipment: null,
+          deductibleVat: false,
+          publishedAt: "2026-10-09T12:00:00.000Z",
+          expiresAt: null,
+          isOwnListing: false,
+          images: [],
+        }}
+        canBid
+        hasSubscriptionAccess
+      />,
+    );
+    expect(screen.queryByText("Beskrivning")).not.toBeInTheDocument();
+    expect(screen.getByText("Avvikelser 2")).toBeInTheDocument();
+    expect(screen.getByText("Återfunnen oskadad.")).toBeInTheDocument();
+    expect(screen.getByText(/Stockholms län/)).toBeInTheDocument();
   });
 });

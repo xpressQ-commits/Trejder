@@ -8,6 +8,8 @@ import {
 import { readMarketplaceListingImage } from "@/server/marketplace/listings";
 import { AccessError, errorResponse } from "@/server/security";
 import { renderImageVariant } from "@/server/storage/image-variants";
+import { getCompanySubscriptionAccess } from "@/server/billing";
+import { hasPlatformAdminAuthority } from "@/server/platform-admin";
 
 export async function GET(
   request: Request,
@@ -27,10 +29,17 @@ export async function GET(
       companyId,
       "listing:read",
     );
+    const [subscription, isPlatformAdmin] = await Promise.all([
+      getCompanySubscriptionAccess(context.company.id),
+      hasPlatformAdminAuthority(context.user.id),
+    ]);
     const image = await readMarketplaceListingImage({
       activeCompanyId: context.company.id,
       listingId: params.listingId,
       position,
+      hasMarketplaceAccess: subscription.canAccess,
+      canViewPrivilegedDetails:
+        context.membership.role === "admin" || isPlatformAdmin,
     });
     const variant = await renderImageVariant(
       request,
@@ -40,7 +49,7 @@ export async function GET(
     return new Response(Buffer.from(variant.bytes), {
       headers: {
         "Content-Type": variant.mimeType,
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-store",
         "Content-Disposition": "inline",
         "X-Content-Type-Options": "nosniff",
       },
