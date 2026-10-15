@@ -28,6 +28,7 @@ describe("marketplace detail layout", () => {
         listing={{
           id: "11111111-1111-4111-8111-111111111111",
           identifier: { kind: "model", value: "BMW iX3" },
+          registrationNumber: null,
           modelYear: 2026,
           mileageMil: 1450,
           shortComment: "Fin bil",

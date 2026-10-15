@@ -2,6 +2,10 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { Role } from "@/domain/authorization";
 import { normalizeEquipment, type EquipmentKey } from "@/domain/equipment";
 import {
+  normalizeRegistrationNumber,
+  shouldRedactLicensePlate,
+} from "@/domain/registration-number";
+import {
   canEditActiveListingFields,
   MAX_LISTING_COMMENT_LENGTH,
   normalizeIdentifier,
@@ -21,7 +25,7 @@ import {
 } from "@/server/db/schema";
 import { AccessError } from "@/server/security";
 import {
-  redactVehicleImage,
+  processVehicleImage,
   type PlateRedactionStatus,
 } from "@/server/vehicles/plate-redaction";
 import {
@@ -36,6 +40,8 @@ type ListingStatus = "draft" | "active" | "inactive" | "matched" | "withdrawn";
 export type OwnListingDto = {
   id: string;
   identifier: VehicleIdentifier;
+  registrationNumber: string | null;
+  showRegistrationNumber: boolean;
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
@@ -60,6 +66,8 @@ export type OwnListingDto = {
 
 export type ListingInput = {
   identifier: Extract<VehicleIdentifier, { kind: "model" }>;
+  registrationNumber: string;
+  showRegistrationNumber: boolean;
   modelYear: number;
   mileageMil: number;
   shortComment: string;
@@ -110,18 +118,21 @@ function normalizedListingValues(
   let identifier: Extract<VehicleIdentifier, { kind: "model" }>;
   let mileageKm: number;
   let modelYear: number;
+  let registrationNumber: string;
   try {
     const normalized = normalizeIdentifier(input.identifier);
     if (normalized.kind !== "model") throw new Error("INVALID_IDENTIFIER");
     identifier = normalized;
     mileageKm = normalizeMileageMil(input.mileageMil);
     modelYear = normalizeModelYear(input.modelYear);
+    registrationNumber = normalizeRegistrationNumber(input.registrationNumber);
   } catch {
     throw new AccessError(400, "INVALID_LISTING_INPUT");
   }
   return {
     inputKind: "model" as const,
-    registrationNumber: null,
+    registrationNumber,
+    showRegistrationNumber: input.showRegistrationNumber,
     vehicleModel: identifier.value,
     modelYear,
     mileageKm,
@@ -160,6 +171,8 @@ function toDto(
   return {
     id: row.id,
     identifier: rowIdentifier(row),
+    registrationNumber: row.registrationNumber,
+    showRegistrationNumber: row.showRegistrationNumber,
     mileageMil: row.mileageKm / 10,
     modelYear: row.modelYear,
     shortComment: row.shortComment,
@@ -324,8 +337,30 @@ export async function updateOwnListing(input: {
         throw new AccessError(400, "INVALID_IDENTIFIER");
       }
       update.inputKind = "model";
-      update.registrationNumber = null;
       update.vehicleModel = identifier.value;
+    }
+    if (input.values.registrationNumber !== undefined) {
+      try {
+        update.registrationNumber = normalizeRegistrationNumber(
+          input.values.registrationNumber,
+        );
+      } catch {
+        throw new AccessError(400, "INVALID_REGISTRATION_NUMBER");
+      }
+    }
+    if (
+      input.values.showRegistrationNumber !== undefined &&
+      input.values.showRegistrationNumber !== listing.showRegistrationNumber
+    ) {
+      const [existingImage] = await tx
+        .select({ id: vehicleImage.id })
+        .from(vehicleImage)
+        .where(eq(vehicleImage.listingId, listing.id))
+        .limit(1);
+      if (existingImage) {
+        throw new AccessError(409, "REGISTRATION_VISIBILITY_LOCKED_AFTER_IMAGES");
+      }
+      update.showRegistrationNumber = input.values.showRegistrationNumber;
     }
     if (input.values.mileageMil !== undefined) {
       try {
@@ -400,6 +435,8 @@ export async function publishListing(input: {
       throw new AccessError(409, "INVALID_LISTING_TRANSITION");
     if (listing.modelYear === null)
       throw new AccessError(409, "MODEL_YEAR_REQUIRED");
+    if (!listing.registrationNumber)
+      throw new AccessError(409, "REGISTRATION_NUMBER_REQUIRED");
     const images = await tx
       .select({
         status: vehicleImage.plateRedactionStatus,
@@ -409,7 +446,10 @@ export async function publishListing(input: {
       .where(eq(vehicleImage.listingId, listing.id));
     if (images.length < 1 || images.length > 5)
       throw new AccessError(409, "IMAGE_COUNT_REQUIRED");
-    if (isPlateRedactionRequired()) {
+    if (
+      shouldRedactLicensePlate(listing.showRegistrationNumber) &&
+      isPlateRedactionRequired()
+    ) {
       if (
         images.some(
           (image) =>
@@ -693,16 +733,16 @@ export async function putListingImage(input: {
         eq(vehicleImage.listingId, input.listingId),
         eq(vehicleImage.position, input.position),
         eq(vehicleImage.sourceChecksumSha256, source.checksumSha256),
-        inArray(vehicleImage.plateRedactionStatus, [
-          "NO_PLATE_DETECTED",
-          "PLATE_REDACTED",
-        ]),
       ),
     )
     .limit(1);
   if (sameImage) return current;
 
-  const redaction = await redactVehicleImage(input.bytes, source.mimeType);
+  const redaction = await processVehicleImage(
+    input.bytes,
+    source.mimeType,
+    current.showRegistrationNumber,
+  );
   if (redaction.status === "FAILED") {
     console.warn("Vehicle plate redaction failed", {
       listingId: input.listingId,

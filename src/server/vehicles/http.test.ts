@@ -3,6 +3,8 @@ import { listingInputSchema, parseImagePosition } from "./http";
 
 const valid = {
   identifier: { kind: "model" as const, value: "BMW M340i" },
+  registrationNumber: "ABC123",
+  showRegistrationNumber: false,
   modelYear: new Date().getUTCFullYear(),
   mileageMil: 6430,
   shortComment: "Svensksåld.",

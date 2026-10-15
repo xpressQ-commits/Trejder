@@ -18,6 +18,10 @@ export type MarketplaceListingSummary = {
   images: MarketplaceImage[];
 };
 
+export type MarketplaceListingDetail = MarketplaceListingSummary & {
+  registrationNumber: string | null;
+};
+
 export type MarketplacePage = {
   listings: MarketplaceListingSummary[];
   nextCursor: string | null;

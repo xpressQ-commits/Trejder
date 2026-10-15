@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { redactVehicleImage, setPlateDetector, type PlateDetector } from "./plate-redaction";
+import { processVehicleImage, redactVehicleImage, setPlateDetector, type PlateDetector } from "./plate-redaction";
 
 let source: Uint8Array;
 
@@ -51,6 +51,16 @@ describe("vehicle plate redaction", () => {
     setPlateDetector(null);
     await expect(redactVehicleImage(source, "image/jpeg"))
       .resolves.toMatchObject({ status: "NOT_CHECKED", error: "provider_not_configured" });
+  });
+
+  it("does not call the detector when the seller shows the registration number", async () => {
+    const detect = vi.fn<PlateDetector["detect"]>();
+    setPlateDetector({ detect });
+    await expect(processVehicleImage(source, "image/jpeg", true)).resolves.toMatchObject({
+      status: "NOT_CHECKED",
+      error: null,
+    });
+    expect(detect).not.toHaveBeenCalled();
   });
 
   it("retries a throttled provider response before failing the image", async () => {

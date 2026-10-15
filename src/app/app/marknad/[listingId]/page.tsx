@@ -16,6 +16,7 @@ export default async function MarketplaceListingPage({
     listing = await getMarketplaceListing(
       context.company.id,
       (await params).listingId,
+      subscription.canAccess,
     );
   } catch {
     notFound();

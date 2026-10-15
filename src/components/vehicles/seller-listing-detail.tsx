@@ -5,6 +5,7 @@ import { SellerActivity } from "./seller-activity";
 import { Status } from "./own-listings";
 import type { OwnListing } from "./types";
 import { EquipmentList } from "./equipment-list";
+import { RegistrationPlate } from "./registration-plate";
 
 export function SellerListingDetail({
   listing,
@@ -61,13 +62,21 @@ export function SellerListingDetail({
           images={listing.images}
           label={listing.identifier.value}
         />
-        {listing.status !== "draft" ? (
-          <SellerActivity
-            listingId={listing.id}
-            canMutate={canMutate}
-            dealId={dealId}
-          />
-        ) : null}
+        <div className="space-y-5">
+          {listing.registrationNumber ? (
+            <RegistrationPlate
+              value={listing.registrationNumber}
+              label="Registreringsnummer"
+            />
+          ) : null}
+          {listing.status !== "draft" ? (
+            <SellerActivity
+              listingId={listing.id}
+              canMutate={canMutate}
+              dealId={dealId}
+            />
+          ) : null}
+        </div>
       </div>
       <div className="mt-8 grid gap-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 md:grid-cols-[1fr_auto]">
         <div>

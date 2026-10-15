@@ -617,6 +617,8 @@ integration("Phase 2 PostgreSQL listing isolation and lifecycle", () => {
 function values(mileageMil: number) {
   return {
     identifier: { kind: "model" as const, value: `Testbil ${mileageMil}` },
+    registrationNumber: `ABC${String(mileageMil).slice(-3).padStart(3, "0")}`,
+    showRegistrationNumber: false,
     modelYear: 2026,
     mileageMil,
     shortComment: "Integrationstest",

@@ -282,7 +282,7 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
     ]);
     expect(result.listings[0]).toEqual({
       id: listingIds.unlimited,
-      identifier: { kind: "registration", value: "FREE11" },
+      identifier: { kind: "model", value: "Bilannons" },
       mileageMil: 6430,
       modelYear: null,
       shortComment: "Marketplace test",
@@ -335,7 +335,7 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
           search: "AAA",
         })
       ).listings.map(({ id }) => id),
-    ).toEqual([listingIds.newest]);
+    ).toEqual([]);
     expect(
       (
         await listMarketplaceListings({
@@ -351,7 +351,13 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
       await import("./listings");
     await expect(
       getMarketplaceListing(buyerCompany, listingIds.own),
-    ).resolves.toMatchObject({ id: listingIds.own });
+    ).resolves.toMatchObject({
+      id: listingIds.own,
+      registrationNumber: "OWN111",
+    });
+    await expect(
+      getMarketplaceListing(buyerCompany, listingIds.unlimited, true),
+    ).resolves.toMatchObject({ registrationNumber: null });
     await expect(
       getMarketplaceListing(buyerCompany, listingIds.draft),
     ).rejects.toMatchObject({ status: 404 });

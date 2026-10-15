@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { formatMileage, formatPublished } from "./marketplace-feed";
-import type { MarketplaceListingSummary } from "./types";
+import type { MarketplaceListingDetail } from "./types";
 import { MarketplaceInteractions } from "@/components/marketplace/marketplace-interactions";
 import { SellerActivity } from "@/components/vehicles/seller-activity";
 import { VehicleGallery } from "@/components/vehicles/vehicle-gallery";
 import { EquipmentList } from "@/components/vehicles/equipment-list";
+import { RegistrationPlate } from "@/components/vehicles/registration-plate";
 
 export function MarketplaceDetail({
   listing,
   canBid,
   hasSubscriptionAccess,
 }: {
-  listing: MarketplaceListingSummary;
+  listing: MarketplaceListingDetail;
   canBid: boolean;
   hasSubscriptionAccess: boolean;
 }) {
@@ -42,15 +43,23 @@ export function MarketplaceDetail({
       </header>
       <div className="mt-6 grid items-start gap-7 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
         <VehicleGallery images={images} label={listing.identifier.value} />
-        {listing.isOwnListing ? (
-          <SellerActivity listingId={listing.id} canMutate={canBid} />
-        ) : (
-          <MarketplaceInteractions
-            listingId={listing.id}
-            canBid={canBid}
-            hasSubscriptionAccess={hasSubscriptionAccess}
-          />
-        )}
+        <div className="space-y-5">
+          {listing.registrationNumber ? (
+            <RegistrationPlate
+              value={listing.registrationNumber}
+              label="Registreringsnummer"
+            />
+          ) : null}
+          {listing.isOwnListing ? (
+            <SellerActivity listingId={listing.id} canMutate={canBid} />
+          ) : (
+            <MarketplaceInteractions
+              listingId={listing.id}
+              canBid={canBid}
+              hasSubscriptionAccess={hasSubscriptionAccess}
+            />
+          )}
+        </div>
       </div>
       <section className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-5">

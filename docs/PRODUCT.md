@@ -8,13 +8,13 @@ Trejder is a responsive Swedish dealer-to-dealer vehicle marketplace. It should 
 
 Publishing stays deliberately short:
 
-`Vehicle model -> model year (1950 through next year) -> mileage -> short comment -> deductible VAT yes/no -> publication duration (48–120 hours) -> 1–5 images -> publish`
+`Registration number + vehicle model -> model year (1950 through next year) -> mileage -> short comment -> deductible VAT yes/no -> registration visibility -> publication duration (48–120 hours) -> 1–5 images -> publish`
 
 Expired listings move to the seller's **Inaktiva** view. They can be republished as the same listing with a newly selected duration; this starts a new bid round and never reactivates bids from an earlier round.
 
 There is no automatic vehicle lookup. Never invent specifications from a registration number or model.
 
-Phase 2 implements this as one Swedish, mobile-first form. Images are checked server-side for visible registration plates; confident detections are blurred before publication. The dealer's own `/app/bilar` area contains only its active listings, drafts and withdrawn listings; it is not a marketplace feed.
+Phase 2 implements this as one Swedish, mobile-first form. The seller decides before uploading images whether the registration number is visible. Hidden registrations trigger server-side plate detection and local blur; visible registrations skip the external detector. The visibility choice locks when the first image is uploaded. The dealer's own `/app/bilar` area contains only its active listings, drafts and withdrawn listings; it is not a marketplace feed.
 
 ## Account model
 

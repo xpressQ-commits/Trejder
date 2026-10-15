@@ -25,6 +25,21 @@ type RedactionResult = {
   error: string | null;
 };
 
+export async function processVehicleImage(
+  input: Uint8Array,
+  mimeType: SupportedImageMime,
+  showRegistrationNumber: boolean,
+): Promise<RedactionResult> {
+  if (!showRegistrationNumber) return redactVehicleImage(input, mimeType);
+  return makeResult(
+    await normalizeVehicleImage(input, mimeType),
+    mimeType,
+    "NOT_CHECKED",
+    null,
+    null,
+  );
+}
+
 const snapshotResponse = z.object({
   results: z.array(z.object({
     score: z.number().min(0).max(1),
@@ -109,7 +124,7 @@ export async function redactVehicleImage(
   input: Uint8Array,
   mimeType: SupportedImageMime,
 ): Promise<RedactionResult> {
-  const normalized = await normalize(input, mimeType);
+  const normalized = await normalizeVehicleImage(input, mimeType);
   const detector = getPlateDetector();
   if (!detector) return makeResult(normalized, mimeType, "NOT_CHECKED", null, "provider_not_configured");
   try {
@@ -138,7 +153,7 @@ function makeResult(bytes: Uint8Array, mimeType: SupportedImageMime, status: Pla
   return { bytes, mimeType, status, confidence, error };
 }
 
-async function normalize(bytes: Uint8Array, mimeType: SupportedImageMime): Promise<Uint8Array> {
+export async function normalizeVehicleImage(bytes: Uint8Array, mimeType: SupportedImageMime): Promise<Uint8Array> {
   const pipeline = sharp(bytes, { failOn: "error", limitInputPixels: 40_000_000 }).rotate();
   return encode(pipeline, mimeType);
 }

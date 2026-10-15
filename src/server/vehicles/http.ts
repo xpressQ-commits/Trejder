@@ -12,6 +12,8 @@ export const listingInputSchema = z
     identifier: z
       .object({ kind: z.literal("model"), value: z.string().min(1).max(160) })
       .strict(),
+    registrationNumber: z.string().min(1).max(32),
+    showRegistrationNumber: z.boolean(),
     modelYear: z
       .number()
       .int()

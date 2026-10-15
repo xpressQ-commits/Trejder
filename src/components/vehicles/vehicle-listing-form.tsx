@@ -30,6 +30,12 @@ export function VehicleListingForm({
   const [model, setModel] = useState(
     listing?.identifier.kind === "model" ? listing.identifier.value : "",
   );
+  const [registrationNumber, setRegistrationNumber] = useState(
+    listing?.registrationNumber ?? "",
+  );
+  const [showRegistrationNumber, setShowRegistrationNumber] = useState(
+    listing?.showRegistrationNumber ?? false,
+  );
   const [modelYear, setModelYear] = useState(
     listing?.modelYear ? String(listing.modelYear) : "",
   );
@@ -93,6 +99,10 @@ export function VehicleListingForm({
       setError("Miltal måste vara ett heltal.");
       return;
     }
+    if (!immutable && !registrationNumber.trim()) {
+      setError("Registreringsnummer måste anges.");
+      return;
+    }
     if (
       action === "publish" &&
       (currentListing?.images.length ?? 0) + files.length < 1
@@ -117,6 +127,8 @@ export function VehicleListingForm({
         ? { shortComment: comment, equipment, otherEquipment }
         : {
             identifier: { kind: "model", value: model },
+            registrationNumber,
+            showRegistrationNumber,
             modelYear: parsedModelYear,
             mileageMil,
             shortComment: comment,
@@ -157,7 +169,9 @@ export function VehicleListingForm({
           setPublishProgress({
             percent: 15 + Math.round((index / Math.max(files.length, 1)) * 65),
             title: "Bearbetar bilder",
-            detail: `Bild ${index + 1} av ${files.length} laddas upp och kontrolleras…`,
+            detail: showRegistrationNumber
+              ? `Bild ${index + 1} av ${files.length} laddas upp…`
+              : `Bild ${index + 1} av ${files.length} laddas upp och kontrolleras…`,
           });
         }
         setImageProgress((current) => ({
@@ -168,7 +182,9 @@ export function VehicleListingForm({
         formData.set("image", file);
         setImageProgress((current) => ({
           ...current,
-          [position]: "Kontrollerar registreringsnummer…",
+          [position]: showRegistrationNumber
+            ? "Bearbetar bild…"
+            : "Kontrollerar registreringsnummer…",
         }));
         const upload = await fetch(
           `/api/company/listings/${listingId}/images/${position}`,
@@ -332,6 +348,51 @@ export function VehicleListingForm({
           className={inputClassName}
           required
         />
+      </label>
+
+      <label className="block font-semibold">
+        Registreringsnummer
+        <input
+          aria-label="Registreringsnummer"
+          value={registrationNumber}
+          onChange={(event) => setRegistrationNumber(event.target.value)}
+          disabled={!editable || immutable}
+          maxLength={16}
+          autoCapitalize="characters"
+          placeholder="ABC 123"
+          className={inputClassName}
+          required
+        />
+        <span className="mt-1 block text-xs font-normal text-[var(--muted)]">
+          Används för att identifiera bilen. Visas bara enligt valet nedan.
+        </span>
+      </label>
+
+      <label
+        className={`flex items-start gap-3 rounded-xl border border-[var(--border)] p-4 ${currentListing?.images.length ? "opacity-70" : "cursor-pointer"}`}
+      >
+        <input
+          type="checkbox"
+          checked={showRegistrationNumber}
+          onChange={(event) => setShowRegistrationNumber(event.target.checked)}
+          disabled={
+            !editable || immutable || Boolean(currentListing?.images.length)
+          }
+          className="mt-1 h-5 w-5 accent-[var(--primary)]"
+        />
+        <span>
+          <span className="block font-semibold">
+            Visa registreringsnumret i annonsen
+          </span>
+          <span className="mt-1 block text-sm text-[var(--muted)]">
+            {showRegistrationNumber
+              ? "Registreringsnumret visas för behöriga marknadsanvändare och skyltar censureras inte i bilderna."
+              : "Registreringsnumret döljs och registreringsskyltar censureras automatiskt i bilderna."}
+            {currentListing?.images.length
+              ? " Valet är låst efter att bilder har laddats upp."
+              : " Välj innan du laddar upp bilder."}
+          </span>
+        </span>
       </label>
 
       <label className="block font-semibold">
@@ -604,6 +665,13 @@ export function VehicleListingForm({
 }
 
 function errorMessage(code: string) {
+  if (
+    code === "REGISTRATION_NUMBER_REQUIRED" ||
+    code === "INVALID_REGISTRATION_NUMBER"
+  )
+    return "Ett giltigt registreringsnummer måste anges.";
+  if (code === "REGISTRATION_VISIBILITY_LOCKED_AFTER_IMAGES")
+    return "Synligheten kan inte ändras efter att bilder har laddats upp. Ta bort bilderna först.";
   if (code === "MODEL_YEAR_REQUIRED" || code === "INVALID_MODEL_YEAR")
     return "Årsmodell måste väljas.";
   if (code === "IMAGE_COUNT_REQUIRED")
