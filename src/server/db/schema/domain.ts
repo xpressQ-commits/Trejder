@@ -53,6 +53,12 @@ export const plateRedactionStatus = pgEnum("plate_redaction_status", [
   "REVIEW_REQUIRED",
   "FAILED",
 ]);
+export const listingDeviation = pgEnum("listing_deviation", [
+  "WAS_WANTED",
+  "PRIVATE_IMPORT",
+  "MILEAGE_HISTORY_ANOMALY",
+  "REPAIRED",
+]);
 export const bidStatus = pgEnum("bid_status", [
   "active",
   "withdrawn",
@@ -371,6 +377,14 @@ export const vehicleListing = pgTable(
     modelYear: integer("model_year"),
     mileageKm: integer("mileage_km").notNull(),
     shortComment: varchar("short_comment", { length: 500 }).notNull(),
+    postalCode: varchar("postal_code", { length: 5 }),
+    locality: varchar("locality", { length: 120 }),
+    county: varchar("county", { length: 120 }),
+    deviations: listingDeviation("deviations")
+      .array()
+      .notNull()
+      .default(sql`'{}'::listing_deviation[]`),
+    wantedComment: varchar("wanted_comment", { length: 500 }),
     equipment: text("equipment")
       .array()
       .notNull()
@@ -427,6 +441,14 @@ export const vehicleListing = pgTable(
       "vehicle_listings_identifier_matches_kind",
       sql`(${table.inputKind} = 'registration' AND ${table.registrationNumber} IS NOT NULL) OR (${table.inputKind} = 'model' AND ${table.vehicleModel} IS NOT NULL)`,
     ),
+    check(
+      "vehicle_listings_location_complete",
+      sql`(${table.postalCode} IS NULL AND ${table.locality} IS NULL AND ${table.county} IS NULL) OR (${table.postalCode} IS NOT NULL AND ${table.locality} IS NOT NULL AND ${table.county} IS NOT NULL)`,
+    ),
+    check(
+      "vehicle_listings_wanted_comment_requires_flag",
+      sql`${table.wantedComment} IS NULL OR 'WAS_WANTED' = ANY(${table.deviations})`,
+    ),
   ],
 );
 
@@ -439,6 +461,7 @@ export const vehicleImage = pgTable(
       .references(() => vehicleListing.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
     objectKey: text("object_key").notNull().unique(),
+    blurredObjectKey: text("blurred_object_key").unique(),
     mimeType: varchar("mime_type", { length: 100 }).notNull(),
     byteSize: integer("byte_size").notNull(),
     checksumSha256: varchar("checksum_sha256", { length: 64 }).notNull(),
@@ -469,6 +492,68 @@ export const vehicleImage = pgTable(
       sql`${table.plateConfidence} IS NULL OR ${table.plateConfidence} BETWEEN 0 AND 1000`,
     ),
     check("vehicle_images_byte_size_positive", sql`${table.byteSize} > 0`),
+  ],
+);
+
+export const damageImage = pgTable(
+  "damage_images",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => vehicleListing.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    objectKey: text("object_key").notNull().unique(),
+    blurredObjectKey: text("blurred_object_key").notNull().unique(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    byteSize: integer("byte_size").notNull(),
+    checksumSha256: varchar("checksum_sha256", { length: 64 }).notNull(),
+    sourceChecksumSha256: varchar("source_checksum_sha256", { length: 64 })
+      .notNull(),
+    plateRedactionStatus: plateRedactionStatus("plate_redaction_status")
+      .notNull()
+      .default("NOT_CHECKED"),
+    plateConfidence: integer("plate_confidence"),
+    plateProcessedAt: timestamp("plate_processed_at", { withTimezone: true }),
+    plateProcessingError: varchar("plate_processing_error", { length: 120 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("damage_images_listing_position_uq").on(
+      table.listingId,
+      table.position,
+    ),
+    check("damage_images_position_range", sql`${table.position} BETWEEN 1 AND 5`),
+    check(
+      "damage_images_plate_confidence_range",
+      sql`${table.plateConfidence} IS NULL OR ${table.plateConfidence} BETWEEN 0 AND 1000`,
+    ),
+  ],
+);
+
+export const listingDocument = pgTable(
+  "listing_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => vehicleListing.id, { onDelete: "cascade" }),
+    objectKey: text("object_key").notNull().unique(),
+    originalName: varchar("original_name", { length: 200 }).notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    byteSize: integer("byte_size").notNull(),
+    checksumSha256: varchar("checksum_sha256", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("listing_documents_listing_created_idx").on(
+      table.listingId,
+      table.createdAt,
+    ),
   ],
 );
 

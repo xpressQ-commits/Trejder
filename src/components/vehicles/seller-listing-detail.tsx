@@ -6,6 +6,7 @@ import { Status } from "./own-listings";
 import type { OwnListing } from "./types";
 import { EquipmentList } from "./equipment-list";
 import { RegistrationPlate } from "./registration-plate";
+import { DamageGallery, DeviationDetails, ListingDocuments } from "./listing-extras";
 
 export function SellerListingDetail({
   listing,
@@ -23,16 +24,21 @@ export function SellerListingDetail({
           <p className="text-sm font-semibold text-[var(--primary)]">
             Egen annons
           </p>
-          <div className="mt-1 flex items-center gap-3">
+          <div className="mt-1 flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-semibold tracking-tight">
               {listing.identifier.value}
             </h1>
             <Status status={listing.status} />
+            <DeviationDetails
+              deviations={listing.deviations}
+              wantedComment={listing.wantedComment}
+            />
           </div>
           <p className="mt-2 text-[var(--muted)]">
             {listing.modelYear ? `${listing.modelYear} · ` : ""}
             {new Intl.NumberFormat("sv-SE").format(listing.mileageMil)} mil ·{" "}
             {listing.deductibleVat ? "Avdragbar moms" : "Ej avdragbar moms"}
+            {listing.county ? ` · ${listing.county}` : ""}
           </p>
         </div>
         {dealId ? (
@@ -79,12 +85,12 @@ export function SellerListingDetail({
         </div>
       </div>
       <div className="mt-8 grid gap-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 md:grid-cols-[1fr_auto]">
-        <div>
+        {listing.shortComment ? <div>
           <h2 className="font-semibold">Beskrivning</h2>
           <p className="mt-2 max-w-2xl whitespace-pre-wrap">
             {listing.shortComment}
           </p>
-        </div>
+        </div> : null}
         <dl className="grid grid-cols-2 gap-5 text-sm md:grid-cols-1">
           {listing.expiresAt ? (
             <div>
@@ -110,6 +116,8 @@ export function SellerListingDetail({
         equipment={listing.equipment}
         otherEquipment={listing.otherEquipment}
       />
+      <DamageGallery images={listing.damageImages} label={listing.identifier.value} />
+      <ListingDocuments documents={listing.documents} />
     </article>
   );
 }

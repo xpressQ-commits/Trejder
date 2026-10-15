@@ -17,6 +17,33 @@ describe("vehicle listing transport contract", () => {
     expect(listingInputSchema.safeParse(valid).success).toBe(true);
   });
 
+  it("accepts an empty optional comment", () => {
+    expect(listingInputSchema.safeParse({ ...valid, shortComment: "" }).success)
+      .toBe(true);
+  });
+
+  it("accepts a complete location and rejects partial location data", () => {
+    expect(listingInputSchema.safeParse({
+      ...valid,
+      postalCode: "141 52",
+      locality: "Huddinge",
+      county: "Stockholms län",
+    }).success).toBe(true);
+    expect(listingInputSchema.safeParse({ ...valid, postalCode: "14152" }).success)
+      .toBe(false);
+  });
+
+  it("accepts known deviations and rejects unknown keys", () => {
+    expect(listingInputSchema.safeParse({
+      ...valid,
+      deviations: ["PRIVATE_IMPORT", "REPAIRED"],
+    }).success).toBe(true);
+    expect(listingInputSchema.safeParse({
+      ...valid,
+      deviations: ["UNKNOWN"],
+    }).success).toBe(false);
+  });
+
   it("rejects forged tenant, owner, status and normalized mileage fields", () => {
     for (const extra of [
       { sellerCompanyId: "forged" },

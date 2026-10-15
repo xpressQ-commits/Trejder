@@ -7,8 +7,10 @@
 - **CompanyMembership:** connects one user to one company with `ADMIN`, `TRADER` or `VIEWER` authority and an active, suspended or revoked state.
 - **CompanyInvitation:** one-time, expiring invitation to a company and role.
 - **AccountApplication:** public dealer application in pending, approved or rejected review state; it grants no access by itself.
-- **VehicleListing:** seller-owned vehicle input, mileage, comment, VAT flag, publication duration and server-controlled state. A publication round separates bids across republications.
-- **VehicleImage:** private object reference at position 1–5 with plate-redaction status. Publication requires 1–5 valid images; completed plate checks are required when redaction is configured.
+- **VehicleListing:** seller-owned vehicle input, mileage, optional comment, optional postcode-derived locality/county, structured deviation keys, VAT flag, publication duration and server-controlled state. A publication round separates bids across republications.
+- **VehicleImage:** private processed object plus a separately stored blurred preview at position 1–5 with plate-redaction status. Publication requires 1–5 valid vehicle images; completed plate checks are required when redaction is configured.
+- **DamageImage:** optional private image at position 1–5 with the same plate-redaction and entitlement variants as a vehicle image.
+- **ListingDocument:** optional protected PDF/JPEG/PNG object with sanitized display name; at most ten belong to one listing.
 - **Bid:** one current bid per bidder company and listing, with a listing-scoped anonymous number.
 - **Match/Deal:** result of accepting one bid, including immutable parties, amount and historical commercial terms plus a small deal lifecycle (`accepted -> in_progress -> completed`).
 - **AuditLog:** append-only security and domain event record with sanitized metadata.
@@ -38,6 +40,9 @@
 - New listings contain both a normalized registration number and a separately entered vehicle model. Legacy rows may lack one of them during the backward-compatible migration period.
 - Mileage is a non-negative integer number of kilometres.
 - Image positions are 1–5 and unique per listing.
+- Damage-image positions are independently 1–5 and unique per listing.
+- Allowed deviation keys are `WAS_WANTED`, `PRIVATE_IMPORT`, `MILEAGE_HISTORY_ANOMALY` and `REPAIRED`; a wanted comment requires `WAS_WANTED`.
+- Listing location is either absent or a complete `postalCode + locality + county` tuple. Marketplace DTOs expose county only.
 - One company has at most one bid per listing publication round.
 - Bid aliases are unique within a listing.
 - A duplicated seller company key plus a composite foreign key lets PostgreSQL reject self-bidding.
@@ -107,11 +112,11 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 
 - `createDraft` derives seller company and creator from the active server context.
 - UI mileage is a whole number of Swedish mil. The server multiplies it by 10 and PostgreSQL enforces a non-negative whole-mil kilometre value no greater than 2,000,000 km.
-- Trader comments are required and limited to 500 characters.
-- A draft may be fully edited and may hold zero to five images. Registration visibility is locked after the first image upload, so an uncensored stored image can never become associated with hidden registration visibility.
+- Trader comments are optional and limited to 500 characters. Empty descriptions are omitted from detail presentation.
+- A draft may be fully edited and may hold zero to five vehicle images, zero to five damage images and zero to ten documents. Registration visibility is locked after the first vehicle or damage image upload, so an uncensored stored image can never become associated with hidden registration visibility.
 - Publishing locks the listing row, requires 1–5 images and changes `draft -> active`. Completed plate checks are enforced when redaction is configured. Repeated publication of the same active listing is idempotent.
 - PWT Invest AB may additionally choose an unlimited publication, represented by a null expiry. Other companies are rejected server-side if they attempt that value.
-- Active listings allow comment corrections and atomic image replacement only. Registration/model, mileage and VAT are locked; changing them requires withdrawal and a new listing.
+- Active listings allow comment, location, deviations, equipment, damage-image and document corrections plus atomic vehicle-image replacement. Registration/model, mileage and VAT are locked; changing them requires withdrawal and a new listing.
 - `draft|active -> withdrawn` is allowed. Withdrawn is terminal.
 - ADMIN and TRADER mutate. VIEWER has own-company read access only.
 

@@ -78,6 +78,13 @@ export function normalizeIdentifier(
 export function canEditActiveListingFields(keys: readonly string[]): boolean {
   return keys.every(
     (key) =>
-      key === "shortComment" || key === "equipment" || key === "otherEquipment",
+      key === "shortComment" ||
+      key === "equipment" ||
+      key === "otherEquipment" ||
+      key === "postalCode" ||
+      key === "locality" ||
+      key === "county" ||
+      key === "deviations" ||
+      key === "wantedComment",
   );
 }

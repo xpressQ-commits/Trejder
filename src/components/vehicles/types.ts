@@ -28,6 +28,11 @@ export type OwnListing = {
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  postalCode: string | null;
+  locality: string | null;
+  county: string | null;
+  deviations: import("@/domain/listing-details").ListingDeviation[];
+  wantedComment: string | null;
   equipment: import("@/domain/equipment").EquipmentKey[];
   otherEquipment: string | null;
   deductibleVat: boolean;
@@ -37,6 +42,14 @@ export type OwnListing = {
   publishedAt: string | null;
   expiresAt: string | null;
   images: ListingImage[];
+  damageImages: ListingImage[];
+  documents: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    byteSize: number;
+    url: string;
+  }>;
 };
 
 export const listingStatusLabel: Record<ListingStatus, string> = {
@@ -58,6 +71,11 @@ export function serializeOwnListing(listing: {
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  postalCode: string | null;
+  locality: string | null;
+  county: string | null;
+  deviations: import("@/domain/listing-details").ListingDeviation[];
+  wantedComment: string | null;
   equipment: import("@/domain/equipment").EquipmentKey[];
   otherEquipment: string | null;
   deductibleVat: boolean;
@@ -67,6 +85,14 @@ export function serializeOwnListing(listing: {
   publishedAt: Date | null;
   expiresAt: Date | null;
   images: ListingImage[];
+  damageImages: ListingImage[];
+  documents: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    byteSize: number;
+    url: string;
+  }>;
 }): OwnListing {
   return {
     ...listing,

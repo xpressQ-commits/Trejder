@@ -69,6 +69,10 @@ Registration numbers are normalized server-side. Marketplace list/search project
 
 Marketplace image reads independently reload active membership and require an unexpired active listing. Withdrawing or expiring a listing therefore immediately removes its marketplace image access. Marketplace DTOs expose only application image routes, never object keys or image identifiers.
 
+Marketplace image authorization additionally reloads the central entitlement. Seller/owner, company ADMIN/platform administrator and active entitled dealer receive the stored full processed variant. An unpaid/inactive dealer receives only the pre-generated heavily blurred object, regardless of the seller's registration-number choice. The same matrix applies to damage images. Responses are not cached in the browser, and DTOs never contain original, processed or blurred storage keys.
+
+Listing documents are private objects and are never served from bucket URLs. Only a freshly authorized owner or an active dealer member who may open the active listing can use their protected route. Uploads allow PDF, JPEG and PNG only, validate declared MIME against signatures, cap each object at 15 MB and each listing at ten, sanitize display filenames, use opaque object keys and return `nosniff`, sandboxing CSP and safe content-disposition headers.
+
 ## Verification strategy
 
 Before each feature ships, test direct API access, the complete role matrix, cross-tenant IDs, stale sessions, mass assignment, malformed input and invalid state transitions. Anonymity contract tests recursively reject forbidden keys and known bidder values. Acceptance requires real PostgreSQL concurrency tests with independent connections. UI tests supplement but never prove server authorization.

@@ -145,6 +145,29 @@ describe("VehicleListingForm image selection", () => {
     expect(screen.getAllByAltText(/Förhandsvisning av bild/)).toHaveLength(5);
   });
 
+  it("selects multiple damage images, previews them and enforces five", () => {
+    render(<VehicleListingForm />);
+    const input = screen.getByLabelText("Ladda upp skadebilder") as HTMLInputElement;
+    expect(input.multiple).toBe(true);
+    const files = Array.from(
+      { length: 6 },
+      (_, index) => new File([String(index)], `damage-${index}.jpg`, { type: "image/jpeg" }),
+    );
+    fireEvent.change(input, { target: { files } });
+    expect(screen.getByText("5 av 5 skadebilder valda")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Max 5 skadebilder");
+    expect(screen.getAllByAltText(/Förhandsvisning av bild/)).toHaveLength(5);
+    fireEvent.click(screen.getAllByRole("button", { name: "Ta bort" })[0]);
+    expect(screen.getByText("4 av 5 skadebilder valda")).toBeInTheDocument();
+  });
+
+  it("shows the wanted comment only while the wanted deviation is selected", () => {
+    render(<VehicleListingForm />);
+    expect(screen.queryByText(/Kommentar om efterlysning/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Fordonet har varit efterlyst"));
+    expect(screen.getByText(/Kommentar om efterlysning/)).toBeInTheDocument();
+  });
+
   it("shows publication progress and keeps a successfully uploaded image after publication is blocked", async () => {
     const draft = ownListing([]);
     const uploaded = ownListing([
@@ -181,7 +204,7 @@ describe("VehicleListingForm image selection", () => {
     fireEvent.change(screen.getByLabelText("Årsmodell"), {
       target: { value: String(new Date().getFullYear()) },
     });
-    fireEvent.change(screen.getByLabelText(/Miltal/), {
+    fireEvent.change(screen.getByRole("spinbutton"), {
       target: { value: "1400" },
     });
     fireEvent.change(
@@ -227,6 +250,11 @@ function ownListing(images: OwnListing["images"]): OwnListing {
     mileageMil: 1400,
     modelYear: new Date().getFullYear(),
     shortComment: "Fin bil",
+    postalCode: "14152",
+    locality: "Huddinge",
+    county: "Stockholms län",
+    deviations: [],
+    wantedComment: null,
     equipment: [],
     otherEquipment: null,
     deductibleVat: false,
@@ -236,5 +264,7 @@ function ownListing(images: OwnListing["images"]): OwnListing {
     publishedAt: null,
     expiresAt: null,
     images,
+    damageImages: [],
+    documents: [],
   };
 }

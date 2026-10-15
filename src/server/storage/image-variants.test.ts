@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { renderImageVariant } from "./image-variants";
+import { createBlurredPreview, renderImageVariant } from "./image-variants";
 
 describe("renderImageVariant", () => {
   it("creates a bounded WebP thumbnail for an allowed width", async () => {
@@ -29,5 +29,16 @@ describe("renderImageVariant", () => {
       "image/jpeg",
     );
     expect(result).toEqual({ bytes, mimeType: "image/jpeg" });
+  });
+
+  it("pre-generates a bounded blurred WebP instead of exposing the original", async () => {
+    const original = await sharp({
+      create: { width: 1200, height: 900, channels: 3, background: "#336699" },
+    }).jpeg().toBuffer();
+    const preview = await createBlurredPreview(new Uint8Array(original));
+    const metadata = await sharp(preview.bytes).metadata();
+    expect(preview.mimeType).toBe("image/webp");
+    expect(metadata.width).toBe(640);
+    expect(Buffer.from(preview.bytes).equals(original)).toBe(false);
   });
 });

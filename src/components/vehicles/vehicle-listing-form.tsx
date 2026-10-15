@@ -10,12 +10,21 @@ import {
 } from "@/components/ui/form-controls";
 import type { OwnListing } from "./types";
 import type { EquipmentKey } from "@/domain/equipment";
+import {
+  listingDeviationKeys,
+  type ListingDeviation,
+} from "@/domain/listing-details";
 import { EquipmentSelector } from "./equipment-selector";
 
 const imagePositions = [1, 2, 3, 4, 5] as const;
 type ImagePosition = (typeof imagePositions)[number];
 type PendingAction = "save" | "publish";
 type PublishProgress = { percent: number; title: string; detail: string };
+type LocationSuggestion = {
+  postalCode: string;
+  locality: string;
+  county: string;
+};
 
 export function VehicleListingForm({
   listing,
@@ -49,12 +58,27 @@ export function VehicleListingForm({
     listing?.otherEquipment ?? "",
   );
   const [comment, setComment] = useState(listing?.shortComment ?? "");
+  const [postalCode, setPostalCode] = useState(listing?.postalCode ?? "");
+  const [locality, setLocality] = useState(listing?.locality ?? "");
+  const [county, setCounty] = useState(listing?.county ?? "");
+  const [locationSuggestions, setLocationSuggestions] = useState<
+    LocationSuggestion[]
+  >([]);
+  const [locationPending, setLocationPending] = useState(false);
+  const [deviations, setDeviations] = useState<ListingDeviation[]>(
+    listing?.deviations ?? [],
+  );
+  const [wantedComment, setWantedComment] = useState(
+    listing?.wantedComment ?? "",
+  );
   const [vat, setVat] = useState(listing?.deductibleVat ?? false);
   const [publicationHours, setPublicationHours] = useState<number | null>(
     listing?.publicationHours ?? 48,
   );
   const [draftId, setDraftId] = useState(listing?.id);
   const [files, setFiles] = useState<File[]>([]);
+  const [damageFiles, setDamageFiles] = useState<File[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [currentListing, setCurrentListing] = useState(listing);
   const [pendingAction, setPendingAction] = useState<PendingAction>();
   const [error, setError] = useState<string>();
@@ -78,6 +102,56 @@ export function VehicleListingForm({
         !currentListing?.images.some((image) => image.position === position),
     )
     .slice(0, files.length);
+  const selectedDamagePositions = imagePositions
+    .filter(
+      (position) =>
+        !currentListing?.damageImages.some(
+          (image) => image.position === position,
+        ),
+    )
+    .slice(0, damageFiles.length);
+
+  useEffect(() => {
+    const normalized = postalCode.replace(/\s+/g, "");
+    if (!/^[1-9][0-9]{4}$/.test(normalized)) {
+      return;
+    }
+    if (
+      normalized === listing?.postalCode &&
+      locality === listing.locality &&
+      county === listing.county
+    ) {
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setLocationPending(true);
+      try {
+        const response = await fetch(`/api/postcodes/${normalized}`, {
+          signal: controller.signal,
+        });
+        const body = (await response.json().catch(() => null)) as {
+          suggestions?: LocationSuggestion[];
+        } | null;
+        if (!response.ok) throw new Error();
+        const suggestions = body?.suggestions ?? [];
+        setLocationSuggestions(suggestions);
+        if (suggestions.length === 1) {
+          setPostalCode(suggestions[0].postalCode);
+          setLocality(suggestions[0].locality);
+          setCounty(suggestions[0].county);
+        }
+      } catch {
+        if (!controller.signal.aborted) setLocationSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) setLocationPending(false);
+      }
+    }, 350);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [postalCode, locality, county, listing]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,6 +177,16 @@ export function VehicleListingForm({
       setError("Registreringsnummer måste anges.");
       return;
     }
+    const hasLocation = Boolean(postalCode || locality || county);
+    if (
+      hasLocation &&
+      (!/^[1-9][0-9]{4}$/.test(postalCode.replace(/\s+/g, "")) ||
+        !locality ||
+        !county)
+    ) {
+      setError("Välj en giltig plats från postnummerförslagen.");
+      return;
+    }
     if (
       action === "publish" &&
       (currentListing?.images.length ?? 0) + files.length < 1
@@ -123,8 +207,18 @@ export function VehicleListingForm({
 
     try {
       let listingId = draftId;
+      const locationValues = hasLocation
+        ? { postalCode, locality, county }
+        : {};
       const body = immutable
-        ? { shortComment: comment, equipment, otherEquipment }
+        ? {
+            shortComment: comment,
+            ...locationValues,
+            deviations,
+            wantedComment,
+            equipment,
+            otherEquipment,
+          }
         : {
             identifier: { kind: "model", value: model },
             registrationNumber,
@@ -132,6 +226,9 @@ export function VehicleListingForm({
             modelYear: parsedModelYear,
             mileageMil,
             shortComment: comment,
+            ...locationValues,
+            deviations,
+            wantedComment,
             equipment,
             otherEquipment,
             deductibleVat: vat,
@@ -220,6 +317,64 @@ export function VehicleListingForm({
         }
       }
 
+      const openDamagePositions = imagePositions.filter(
+        (position) =>
+          !workingListing.damageImages.some(
+            (image) => image.position === position,
+          ),
+      );
+      for (const [index, file] of damageFiles.entries()) {
+        const position = openDamagePositions[index];
+        if (!position) throw new Error("DAMAGE_IMAGE_LIMIT_EXCEEDED");
+        if (action === "publish") {
+          setPublishProgress({
+            percent: 72 + Math.round(((index + 1) / Math.max(damageFiles.length, 1)) * 10),
+            title: "Bearbetar skadebilder",
+            detail: `Skadebild ${index + 1} av ${damageFiles.length} kontrolleras…`,
+          });
+        }
+        const formData = new FormData();
+        formData.set("image", file);
+        const upload = await fetch(
+          `/api/company/listings/${listingId}/damage-images/${position}`,
+          { method: "PUT", body: formData },
+        );
+        const uploadBody = (await upload.json().catch(() => null)) as {
+          listing?: OwnListing;
+          error?: string;
+        } | null;
+        if (!upload.ok || !uploadBody?.listing) {
+          throw new Error(uploadBody?.error ?? "UPLOAD_FAILED");
+        }
+        workingListing = uploadBody.listing;
+        setCurrentListing(uploadBody.listing);
+      }
+
+      for (const [index, file] of documentFiles.entries()) {
+        if (action === "publish") {
+          setPublishProgress({
+            percent: 83 + Math.round(((index + 1) / Math.max(documentFiles.length, 1)) * 6),
+            title: "Laddar upp dokument",
+            detail: `Dokument ${index + 1} av ${documentFiles.length} laddas upp…`,
+          });
+        }
+        const formData = new FormData();
+        formData.set("document", file);
+        const upload = await fetch(
+          `/api/company/listings/${listingId}/documents`,
+          { method: "POST", body: formData },
+        );
+        const uploadBody = (await upload.json().catch(() => null)) as {
+          listing?: OwnListing;
+          error?: string;
+        } | null;
+        if (!upload.ok || !uploadBody?.listing) {
+          throw new Error(uploadBody?.error ?? "DOCUMENT_UPLOAD_FAILED");
+        }
+        workingListing = uploadBody.listing;
+        setCurrentListing(uploadBody.listing);
+      }
+
       if (action === "publish") {
         setPublishProgress({
           percent: 90,
@@ -244,6 +399,8 @@ export function VehicleListingForm({
       }
 
       setFiles([]);
+      setDamageFiles([]);
+      setDocumentFiles([]);
       if (action === "publish") {
         router.replace("/app/bilar");
         router.refresh();
@@ -326,6 +483,78 @@ export function VehicleListingForm({
     );
   }
 
+  function addDamageFiles(selected: File[]) {
+    const room =
+      5 - (currentListing?.damageImages.length ?? 0) - damageFiles.length;
+    const accepted = selected.slice(0, Math.max(0, room));
+    setDamageFiles((current) => [...current, ...accepted]);
+    setError(
+      selected.length > room
+        ? "Max 5 skadebilder är tillåtna."
+        : undefined,
+    );
+  }
+
+  function addDocumentFiles(selected: File[]) {
+    const room =
+      10 - (currentListing?.documents.length ?? 0) - documentFiles.length;
+    const accepted = selected.slice(0, Math.max(0, room));
+    setDocumentFiles((current) => [...current, ...accepted]);
+    setError(
+      selected.length > room ? "Max 10 dokument är tillåtna." : undefined,
+    );
+  }
+
+  async function removeDamage(position: ImagePosition) {
+    if (!currentListing || !editable) return;
+    setPendingAction("save");
+    setError(undefined);
+    try {
+      const response = await fetch(
+        `/api/company/listings/${currentListing.id}/damage-images/${position}`,
+        { method: "DELETE" },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        listing?: OwnListing;
+      } | null;
+      if (!response.ok || !body?.listing) throw new Error();
+      setCurrentListing(body.listing);
+    } catch {
+      setError("Skadebilden kunde inte tas bort.");
+    } finally {
+      setPendingAction(undefined);
+    }
+  }
+
+  async function removeDocument(documentId: string) {
+    if (!currentListing || !editable) return;
+    setPendingAction("save");
+    setError(undefined);
+    try {
+      const response = await fetch(
+        `/api/company/listings/${currentListing.id}/documents/${documentId}`,
+        { method: "DELETE" },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        listing?: OwnListing;
+      } | null;
+      if (!response.ok || !body?.listing) throw new Error();
+      setCurrentListing(body.listing);
+    } catch {
+      setError("Dokumentet kunde inte tas bort.");
+    } finally {
+      setPendingAction(undefined);
+    }
+  }
+
+  function toggleDeviation(value: ListingDeviation) {
+    setDeviations((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value],
+    );
+  }
+
   return (
     <form
       onSubmit={submit}
@@ -369,14 +598,19 @@ export function VehicleListingForm({
       </label>
 
       <label
-        className={`flex items-start gap-3 rounded-xl border border-[var(--border)] p-4 ${currentListing?.images.length ? "opacity-70" : "cursor-pointer"}`}
+        className={`flex items-start gap-3 rounded-xl border border-[var(--border)] p-4 ${currentListing && currentListing.images.length + currentListing.damageImages.length > 0 ? "opacity-70" : "cursor-pointer"}`}
       >
         <input
           type="checkbox"
           checked={showRegistrationNumber}
           onChange={(event) => setShowRegistrationNumber(event.target.checked)}
           disabled={
-            !editable || immutable || Boolean(currentListing?.images.length)
+            !editable ||
+            immutable ||
+            Boolean(
+              currentListing &&
+                currentListing.images.length + currentListing.damageImages.length,
+            )
           }
           className="mt-1 h-5 w-5 accent-[var(--primary)]"
         />
@@ -388,7 +622,8 @@ export function VehicleListingForm({
             {showRegistrationNumber
               ? "Registreringsnumret visas för behöriga marknadsanvändare och skyltar censureras inte i bilderna."
               : "Registreringsnumret döljs och registreringsskyltar censureras automatiskt i bilderna."}
-            {currentListing?.images.length
+            {currentListing &&
+            currentListing.images.length + currentListing.damageImages.length > 0
               ? " Valet är låst efter att bilder har laddats upp."
               : " Välj innan du laddar upp bilder."}
           </span>
@@ -431,11 +666,103 @@ export function VehicleListingForm({
         />
       </label>
 
+      <fieldset disabled={!editable}>
+        <legend className="font-semibold">
+          Plats <span className="font-normal text-[var(--muted)]">(frivilligt)</span>
+        </legend>
+        <label className="mt-2 block">
+          <span className="text-sm font-medium text-[var(--muted)]">
+            Postnummer
+          </span>
+          <input
+            aria-label="Postnummer"
+            inputMode="numeric"
+            value={postalCode}
+            onChange={(event) => {
+              setPostalCode(event.target.value);
+              setLocality("");
+              setCounty("");
+              setLocationSuggestions([]);
+            }}
+            maxLength={6}
+            placeholder="141 52"
+            className={inputClassName}
+          />
+        </label>
+        {locationPending ? (
+          <p role="status" className="mt-2 text-sm text-[var(--muted)]">
+            Söker plats…
+          </p>
+        ) : locationSuggestions.length > 1 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {locationSuggestions.map((suggestion) => (
+              <button
+                type="button"
+                key={`${suggestion.locality}-${suggestion.county}`}
+                onClick={() => {
+                  setPostalCode(suggestion.postalCode);
+                  setLocality(suggestion.locality);
+                  setCounty(suggestion.county);
+                  setLocationSuggestions([]);
+                }}
+                className="min-h-11 rounded-lg border border-[var(--border)] px-3 text-sm font-semibold hover:bg-[var(--surface-subtle)]"
+              >
+                {suggestion.locality}, {suggestion.county}
+              </button>
+            ))}
+          </div>
+        ) : locality && county ? (
+          <p className="mt-2 rounded-lg bg-[var(--surface-subtle)] p-3 text-sm">
+            <span className="font-semibold">{locality}</span> · {county}
+          </p>
+        ) : null}
+      </fieldset>
+
       <EquipmentSelector
         value={equipment}
         onChange={setEquipment}
         disabled={!editable}
       />
+
+      <fieldset disabled={!editable}>
+        <legend className="font-semibold">
+          Avvikelser{" "}
+          <span className="font-normal text-[var(--muted)]">(frivilligt)</span>
+        </legend>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {listingDeviationKeys.map((deviation) => (
+            <label
+              key={deviation}
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-[var(--border)] p-3"
+            >
+              <input
+                type="checkbox"
+                checked={deviations.includes(deviation)}
+                onChange={() => toggleDeviation(deviation)}
+                className="h-5 w-5 accent-[var(--primary)]"
+              />
+              <span>{deviationLabel(deviation)}</span>
+            </label>
+          ))}
+        </div>
+        {deviations.includes("WAS_WANTED") ? (
+          <label className="mt-3 block font-medium">
+            Kommentar om efterlysning{" "}
+            <span className="font-normal text-[var(--muted)]">(frivilligt)</span>
+            <textarea
+              value={wantedComment}
+              onChange={(event) => setWantedComment(event.target.value)}
+              maxLength={500}
+              rows={2}
+              className={`${inputClassName} resize-y`}
+              placeholder="Exempel: anmäld stulen men återfunnen oskadad."
+            />
+            <span className="mt-1 block text-right text-xs font-normal text-[var(--muted)]">
+              {wantedComment.length}/500
+            </span>
+          </label>
+        ) : null}
+      </fieldset>
 
       <label className="block font-semibold">
         Övrig utrustning{" "}
@@ -455,7 +782,8 @@ export function VehicleListingForm({
       </label>
 
       <label className="block font-semibold">
-        Kommentar
+        Kommentar{" "}
+        <span className="font-normal text-[var(--muted)]">(frivilligt)</span>
         <textarea
           value={comment}
           onChange={(event) => setComment(event.target.value)}
@@ -464,7 +792,6 @@ export function VehicleListingForm({
           rows={4}
           placeholder="Svensksåld. M-sport. HUD. Några mindre märken."
           className={`${inputClassName} resize-y`}
-          required
         />
         <span className="mt-1 block text-right text-xs font-normal text-[var(--muted)]">
           {comment.length}/500
@@ -617,6 +944,109 @@ export function VehicleListingForm({
         <p className="mt-2 text-xs text-[var(--muted)]">
           JPEG, PNG eller WebP. Högst 10 MB per bild.
         </p>
+      </fieldset>
+
+      <fieldset disabled={!editable}>
+        <legend className="font-semibold">
+          Skadebilder{" "}
+          <span className="font-normal text-[var(--muted)]">
+            — frivilligt, högst 5
+          </span>
+        </legend>
+        <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-[var(--primary)] px-4 py-2.5 font-semibold text-[var(--primary)] hover:bg-[var(--surface-subtle)]">
+          + Ladda upp skadebilder
+          <input
+            aria-label="Ladda upp skadebilder"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            className="sr-only"
+            onChange={(event) => {
+              addDamageFiles(Array.from(event.target.files ?? []));
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+        <p className="mt-3 text-sm font-medium text-[var(--primary)]">
+          {(currentListing?.damageImages.length ?? 0) + damageFiles.length} av 5 skadebilder valda
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[...(currentListing?.damageImages ?? [])]
+            .sort((a, b) => a.position - b.position)
+            .map((existing) => (
+              <div key={existing.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)]">
+                <div className="aspect-[4/3] overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={existing.url} alt={`Skadebild ${existing.position}`} className="h-full w-full object-cover" />
+                </div>
+                <div className="p-3">
+                  <p className="text-sm font-semibold">Skadebild {existing.position}</p>
+                  <button type="button" onClick={() => void removeDamage(existing.position as ImagePosition)} className="min-h-11 w-full text-sm font-semibold text-[var(--danger)]">
+                    Ta bort
+                  </button>
+                  <p className="text-xs text-[var(--muted)]">{redactionLabel(existing.plateRedactionStatus)}</p>
+                </div>
+              </div>
+            ))}
+          {damageFiles.map((file, index) => (
+            <SelectedImagePreview
+              key={`damage-${file.name}-${file.lastModified}-${index}`}
+              file={file}
+              position={selectedDamagePositions[index] ?? index + 1}
+              onRemove={() => setDamageFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+            />
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          Samma registreringsnummerkontroll gäller som för vanliga bilder.
+        </p>
+      </fieldset>
+
+      <fieldset disabled={!editable}>
+        <legend className="font-semibold">
+          Dokument{" "}
+          <span className="font-normal text-[var(--muted)]">(frivilligt)</span>
+        </legend>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Ladda upp servicehistorik, besiktningsprotokoll eller annan relevant fordonsdokumentation.
+        </p>
+        <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-[var(--primary)] px-4 py-2.5 font-semibold text-[var(--primary)] hover:bg-[var(--surface-subtle)]">
+          + Lägg till dokument
+          <input
+            aria-label="Lägg till dokument"
+            type="file"
+            accept="application/pdf,image/jpeg,image/png"
+            multiple
+            className="sr-only"
+            onChange={(event) => {
+              addDocumentFiles(Array.from(event.target.files ?? []));
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          PDF, JPEG eller PNG. Högst 10 dokument och 15 MB per dokument.
+        </p>
+        <ul className="mt-3 space-y-2">
+          {(currentListing?.documents ?? []).map((document) => (
+            <li key={document.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] p-3">
+              <a href={document.url} target="_blank" rel="noreferrer" className="font-semibold text-[var(--primary)] underline">
+                {document.name}
+              </a>
+              <button type="button" onClick={() => void removeDocument(document.id)} className="min-h-11 px-2 text-sm font-semibold text-[var(--danger)]">
+                Ta bort
+              </button>
+            </li>
+          ))}
+          {documentFiles.map((file, index) => (
+            <li key={`${file.name}-${file.lastModified}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-[var(--border)] p-3">
+              <span className="truncate text-sm font-semibold">{file.name}</span>
+              <button type="button" onClick={() => setDocumentFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="min-h-11 px-2 text-sm font-semibold text-[var(--danger)]">
+                Ta bort
+              </button>
+            </li>
+          ))}
+        </ul>
       </fieldset>
 
       {editable ? (
@@ -773,6 +1203,15 @@ function modelYears() {
   for (let year = new Date().getFullYear() + 1; year >= 1950; year -= 1)
     years.push(year);
   return years;
+}
+
+export function deviationLabel(value: ListingDeviation) {
+  return {
+    WAS_WANTED: "Fordonet har varit efterlyst",
+    PRIVATE_IMPORT: "Privatimport",
+    MILEAGE_HISTORY_ANOMALY: "Miltalshistoriken innehåller avvikelser",
+    REPAIRED: "Fordonet har reparerats",
+  }[value];
 }
 
 function SelectedImagePreview({

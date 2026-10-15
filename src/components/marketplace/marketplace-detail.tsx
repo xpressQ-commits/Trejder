@@ -9,6 +9,11 @@ import { SellerActivity } from "@/components/vehicles/seller-activity";
 import { VehicleGallery } from "@/components/vehicles/vehicle-gallery";
 import { EquipmentList } from "@/components/vehicles/equipment-list";
 import { RegistrationPlate } from "@/components/vehicles/registration-plate";
+import {
+  DamageGallery,
+  DeviationDetails,
+  ListingDocuments,
+} from "@/components/vehicles/listing-extras";
 
 export function MarketplaceDetail({
   listing,
@@ -28,7 +33,8 @@ export function MarketplaceDetail({
       >
         <ArrowLeft aria-hidden="true" size={18} /> Till marknaden
       </Link>
-      <header className="mt-4">
+      <header className="mt-4 flex flex-wrap items-start justify-between gap-4">
+        <div>
         <p className="text-sm font-semibold text-[var(--success)]">
           Bil på marknaden
         </p>
@@ -39,7 +45,13 @@ export function MarketplaceDetail({
           {listing.modelYear ? `${listing.modelYear} · ` : ""}
           {formatMileage(listing.mileageMil)} mil ·{" "}
           {listing.deductibleVat ? "Avdragbar moms" : "Ej avdragbar moms"}
+          {listing.county ? ` · ${listing.county}` : ""}
         </p>
+        </div>
+        <DeviationDetails
+          deviations={listing.deviations}
+          wantedComment={listing.wantedComment}
+        />
       </header>
       <div className="mt-6 grid items-start gap-7 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
         <VehicleGallery images={images} label={listing.identifier.value} />
@@ -104,12 +116,12 @@ export function MarketplaceDetail({
       </div>
       <section className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
+          {listing.shortComment ? <div>
             <h2 className="font-semibold">Beskrivning</h2>
             <p className="mt-2 max-w-3xl whitespace-pre-wrap">
               {listing.shortComment}
             </p>
-          </div>
+          </div> : null}
           <dl className="text-sm">
             <dt className="text-[var(--muted)]">Publicerad</dt>
             <dd className="mt-1 font-semibold">
@@ -135,6 +147,11 @@ export function MarketplaceDetail({
         equipment={listing.equipment}
         otherEquipment={listing.otherEquipment}
       />
+      <DamageGallery
+        images={listing.damageImages}
+        label={listing.identifier.value}
+      />
+      <ListingDocuments documents={listing.documents} />
     </article>
   );
 }

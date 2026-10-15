@@ -9,6 +9,7 @@ export type MarketplaceListingSummary = {
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
+  county: string | null;
   equipment: import("@/domain/equipment").EquipmentKey[];
   otherEquipment: string | null;
   deductibleVat: boolean;
@@ -20,6 +21,16 @@ export type MarketplaceListingSummary = {
 
 export type MarketplaceListingDetail = MarketplaceListingSummary & {
   registrationNumber: string | null;
+  deviations: import("@/domain/listing-details").ListingDeviation[];
+  wantedComment: string | null;
+  damageImages: MarketplaceImage[];
+  documents: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    byteSize: number;
+    url: string;
+  }>;
   publisher: {
     kind: "dealer" | "private";
     companyName: string;

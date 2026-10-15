@@ -16,3 +16,13 @@ export async function renderImageVariant(
     .toBuffer();
   return { bytes: new Uint8Array(output), mimeType: "image/webp" };
 }
+
+export async function createBlurredPreview(bytes: Uint8Array) {
+  const output = await sharp(bytes)
+    .rotate()
+    .resize({ width: 640, withoutEnlargement: true, fit: "inside" })
+    .blur(28)
+    .webp({ quality: 58 })
+    .toBuffer();
+  return { bytes: new Uint8Array(output), mimeType: "image/webp" as const };
+}
