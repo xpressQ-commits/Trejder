@@ -99,7 +99,8 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - Marketplace projections deliberately omit seller company/user identity, storage keys and internal metadata.
 - Marketplace images are readable only while the corresponding listing satisfies the marketplace visibility predicate.
 - Feed queries use bounded, newest-first cursor pagination and optional model text and deductible-VAT filters. Registration numbers are never searchable from the public marketplace.
-- Marketplace summary DTOs never contain registration numbers. Detail DTOs return the field only for the seller or when the seller opted in and the viewer has effective marketplace access. Accepted buyers receive it through their tenant-scoped deal DTO.
+- Marketplace summary DTOs never contain registration numbers. Detail DTOs return the field only for the seller, an active company ADMIN/platform administrator, or when the seller opted in and the viewer has effective marketplace access. Privileged administrators also receive an allow-listed publisher contact block for moderation; ordinary traders and viewers remain anonymous before acceptance. Accepted buyers receive registration and counterparty details through their tenant-scoped deal DTO.
+- When acceptance changes an active listing to `matched`, either matched party visiting the former listing URL is redirected to the authoritative deal instead of receiving a marketplace 404.
 - Buyer-facing bid activity contains only the listing-scoped anonymous label and first-bid timestamp. Seller detail returns a separate DTO containing at most three active bids ordered by amount descending and creation time ascending, plus the unique active-bidder count.
 
 ## Phase 2 listing policy

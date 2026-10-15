@@ -20,6 +20,14 @@ export type MarketplaceListingSummary = {
 
 export type MarketplaceListingDetail = MarketplaceListingSummary & {
   registrationNumber: string | null;
+  publisher: {
+    kind: "dealer" | "private";
+    companyName: string;
+    organizationNumber: string;
+    contactName: string;
+    email: string;
+    phone: string | null;
+  } | null;
 };
 
 export type MarketplacePage = {

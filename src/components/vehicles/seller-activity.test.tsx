@@ -8,7 +8,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SellerActivity } from "./seller-activity";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const router = { replace: vi.fn() };
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/components/preferences/preferences-provider", () => ({
   usePreferences: () => ({ locale: "sv", t: (key: string) => key }),
 }));
@@ -18,6 +19,7 @@ vi.mock("@/components/chat/start-chat-button", () => ({
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -31,6 +33,33 @@ const bid = (id: string, bidderLabel: string, amountOre: number) => ({
 });
 
 describe("SellerActivity", () => {
+  it("opens the matched deal immediately after a bid is accepted", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        if (init?.method === "POST") {
+          return Response.json({ match: { id: "deal-1" } });
+        }
+        if (url.endsWith("/questions")) {
+          return Response.json({ questions: [] });
+        }
+        return Response.json({
+          bids: [bid("a", "Handlare A", 30_000_000)],
+          acceptedBid: null,
+          totalActiveBidders: 1,
+        });
+      }),
+    );
+
+    render(<SellerActivity listingId="listing-1" canMutate />);
+    fireEvent.click(await screen.findByRole("button", { name: "bids.accept" }));
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith("/app/affarer/deal-1"),
+    );
+  });
+
   it("shows backend-ranked top three, keeps questions below, and loads the next bid after rejection", async () => {
     let bidReads = 0;
     const fetchMock = vi.fn(

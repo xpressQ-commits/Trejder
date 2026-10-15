@@ -100,12 +100,18 @@ export function SellerActivity({
         body: JSON.stringify({ bindingConfirmed: true }),
       },
     );
+    const responseBody = (await response.json().catch(() => null)) as {
+      match?: { id: string };
+    } | null;
     setMessage({
       type: response.ok ? "success" : "error",
       text: response.ok ? t("bids.accepted") : t("bids.acceptError"),
     });
+    if (response.ok && responseBody?.match?.id) {
+      router.replace(`/app/affarer/${responseBody.match.id}`);
+      return;
+    }
     await load();
-    if (response.ok) router.refresh();
     setPending(undefined);
   }
 

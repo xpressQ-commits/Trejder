@@ -36,7 +36,7 @@ Dealer onboarding remains approval-based. A public applicant may submit contact 
 - A seller may accept any valid bid, not necessarily the highest.
 - Rejecting a bid closes only that bid, notifies its bidder and promotes the next-highest active bid into the seller's top-three view.
 - One listing can create at most one match.
-- Only the matched seller and buyer learn each other's identity and contact details.
+- Only the matched seller and buyer learn each other's identity and contact details in the ordinary marketplace flow. An active company ADMIN or platform administrator may always view the registration number and the publishing account's contact details for support and moderation.
 - Trejder Premium costs 699 SEK excluding VAT per dealer company/month and includes two active dealer users. Each additional active membership costs 199 SEK excluding VAT/month. Suspended/revoked memberships and pending invitations do not count.
 - PWT Invest AB is Trejder's protected platform-owner company. It is permanently exempt from subscriptions, seat charges and its own side of transaction fees, and may publish without an expiry. A normal counterparty remains subject to its normal terms.
 - The intended future accepted dealer match fee is 899 SEK excluding VAT for each dealer side. Charging it remains out of scope until the match-payment phase; the current runtime match snapshot policy is unchanged.

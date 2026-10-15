@@ -50,6 +50,47 @@ export function MarketplaceDetail({
               label="Registreringsnummer"
             />
           ) : null}
+          {listing.publisher ? (
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              <h2 className="text-xl font-semibold">Publicerad av</h2>
+              <dl className="mt-4 space-y-3 text-sm">
+                <div>
+                  <dt className="text-[var(--muted)]">Kontotyp</dt>
+                  <dd className="font-semibold">
+                    {listing.publisher.kind === "private"
+                      ? "Privatkund"
+                      : "Bilhandlare"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--muted)]">Företag/konto</dt>
+                  <dd className="font-semibold">{listing.publisher.companyName}</dd>
+                  <dd className="text-[var(--muted)]">
+                    {listing.publisher.organizationNumber}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--muted)]">Kontaktperson</dt>
+                  <dd className="font-semibold">{listing.publisher.contactName}</dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--muted)]">Kontaktuppgifter</dt>
+                  <dd>
+                    <a className="text-[var(--primary)] underline" href={`mailto:${listing.publisher.email}`}>
+                      {listing.publisher.email}
+                    </a>
+                  </dd>
+                  {listing.publisher.phone ? (
+                    <dd>
+                      <a className="text-[var(--primary)] underline" href={`tel:${listing.publisher.phone}`}>
+                        {listing.publisher.phone}
+                      </a>
+                    </dd>
+                  ) : null}
+                </div>
+              </dl>
+            </section>
+          ) : null}
           {listing.isOwnListing ? (
             <SellerActivity listingId={listing.id} canMutate={canBid} />
           ) : (

@@ -359,6 +359,20 @@ integration("Phase 3 PostgreSQL marketplace visibility", () => {
       getMarketplaceListing(buyerCompany, listingIds.unlimited, true),
     ).resolves.toMatchObject({ registrationNumber: null });
     await expect(
+      getMarketplaceListing(
+        buyerCompany,
+        listingIds.unlimited,
+        false,
+        true,
+      ),
+    ).resolves.toMatchObject({
+      registrationNumber: "FREE11",
+      publisher: {
+        kind: "dealer",
+        companyName: "SECRET SELLER",
+      },
+    });
+    await expect(
       getMarketplaceListing(buyerCompany, listingIds.draft),
     ).rejects.toMatchObject({ status: 404 });
     await expect(

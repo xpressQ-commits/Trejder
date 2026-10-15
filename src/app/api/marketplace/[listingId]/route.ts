@@ -7,6 +7,7 @@ import {
 import { getMarketplaceListing } from "@/server/marketplace/listings";
 import { AccessError, errorResponse } from "@/server/security";
 import { getCompanySubscriptionAccess } from "@/server/billing";
+import { hasPlatformAdminAuthority } from "@/server/platform-admin";
 
 export async function GET(
   request: Request,
@@ -23,12 +24,16 @@ export async function GET(
       companyId,
       "listing:read",
     );
-    const subscription = await getCompanySubscriptionAccess(context.company.id);
+    const [subscription, isPlatformAdmin] = await Promise.all([
+      getCompanySubscriptionAccess(context.company.id),
+      hasPlatformAdminAuthority(context.user.id),
+    ]);
     return Response.json({
       listing: await getMarketplaceListing(
         context.company.id,
         listingId,
         subscription.canAccess,
+        context.membership.role === "admin" || isPlatformAdmin,
       ),
     });
   } catch (error) {
