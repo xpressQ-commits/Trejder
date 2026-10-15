@@ -18,7 +18,13 @@ import type { VehicleIdentifier } from "@/domain/vehicle-listing";
 import { canViewRegistrationNumber } from "@/domain/registration-number";
 import { normalizeEquipment, type EquipmentKey } from "@/domain/equipment";
 import { getDb } from "@/server/db";
-import { vehicleImage, vehicleListing } from "@/server/db/schema";
+import {
+  company,
+  companyMembership,
+  user,
+  vehicleImage,
+  vehicleListing,
+} from "@/server/db/schema";
 import { AccessError } from "@/server/security";
 import { getImageStorage } from "@/server/storage/images";
 
@@ -42,6 +48,14 @@ export type MarketplaceListingSummaryDto = {
 };
 export type MarketplaceListingDetailDto = MarketplaceListingSummaryDto & {
   registrationNumber: string | null;
+  publisher: {
+    kind: "dealer" | "private";
+    companyName: string;
+    organizationNumber: string;
+    contactName: string;
+    email: string;
+    phone: string | null;
+  } | null;
 };
 export type MarketplaceVatFilter = "all" | "yes" | "no";
 
@@ -229,12 +243,14 @@ export async function getMarketplaceListing(
   activeCompanyId: string,
   listingId: string,
   hasMarketplaceAccess = false,
+  canViewPrivilegedDetails = false,
 ): Promise<MarketplaceListingDetailDto> {
   const db = getDb();
   const [row] = await db
     .select({
       ...marketplaceSelection,
       registrationNumber: vehicleListing.registrationNumber,
+      createdByUserId: vehicleListing.createdByUserId,
     })
     .from(vehicleListing)
     .where(
@@ -272,14 +288,48 @@ export async function getMarketplaceListing(
     ),
     activeCompanyId,
   );
+  const [publisher] = canViewPrivilegedDetails
+    ? await db
+        .select({
+          kind: company.kind,
+          companyName: company.legalName,
+          organizationNumber: company.organizationNumber,
+          contactName: user.name,
+          email: user.email,
+          membershipPhone: companyMembership.phone,
+          companyPhone: company.contactPhone,
+        })
+        .from(company)
+        .innerJoin(user, eq(user.id, row.createdByUserId))
+        .leftJoin(
+          companyMembership,
+          and(
+            eq(companyMembership.companyId, company.id),
+            eq(companyMembership.userId, user.id),
+          ),
+        )
+        .where(eq(company.id, row.sellerCompanyId))
+        .limit(1)
+    : [];
   return {
     ...detail,
     registrationNumber: canViewRegistrationNumber({
       isSeller: row.sellerCompanyId === activeCompanyId,
+      isPlatformAdmin: canViewPrivilegedDetails,
       showRegistrationNumber: row.showRegistrationNumber,
       hasMarketplaceAccess,
     })
       ? row.registrationNumber
+      : null,
+    publisher: publisher
+      ? {
+          kind: publisher.kind,
+          companyName: publisher.companyName,
+          organizationNumber: publisher.organizationNumber,
+          contactName: publisher.contactName,
+          email: publisher.email,
+          phone: publisher.membershipPhone ?? publisher.companyPhone,
+        }
       : null,
   };
 }

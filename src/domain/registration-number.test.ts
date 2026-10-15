@@ -34,6 +34,7 @@ describe("registration number policy", () => {
     expect(canViewRegistrationNumber({ isSeller: false, showRegistrationNumber: true, hasMarketplaceAccess: true })).toBe(true);
     expect(canViewRegistrationNumber({ isSeller: false, showRegistrationNumber: true, hasMarketplaceAccess: false })).toBe(false);
     expect(canViewRegistrationNumber({ isSeller: false, showRegistrationNumber: false, hasMarketplaceAccess: true })).toBe(false);
+    expect(canViewRegistrationNumber({ isSeller: false, isPlatformAdmin: true, showRegistrationNumber: false, hasMarketplaceAccess: false })).toBe(true);
     expect(canViewRegistrationNumber({ isSeller: false, isAcceptedBuyer: true, showRegistrationNumber: false, hasMarketplaceAccess: false })).toBe(true);
   });
 

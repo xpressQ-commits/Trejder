@@ -71,7 +71,7 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 
 Authorized image reads go through a tenant-scoped application route. DTOs contain that route, never the underlying object key. Object keys are opaque values with 256 random bits and contain no tenant or listing identifier; the bucket remains private.
 
-Marketplace reads use dedicated allow-listed DTOs and fresh active-company authorization. Queries expose only active listings owned by other companies, use bounded cursor pagination, and never select seller identity. Marketplace image routes repeat the same active/non-owner predicate at read time.
+Marketplace reads use dedicated allow-listed DTOs and fresh active-company authorization. Queries expose only active listings owned by other companies and use bounded cursor pagination. Ordinary marketplace projections never select seller identity; a separately authorized detail projection may select the publishing account's allow-listed contact fields for an active company ADMIN or platform administrator. Marketplace image routes repeat the same active/non-owner predicate at read time.
 
 Vehicle detail activity is split by audience. The public endpoint selects only anonymous alias numbers and timestamps and derives a unique-bidder summary. The seller endpoint applies active/current-round predicates, amount ordering and a three-row limit in PostgreSQL. Questions are fetched once per panel alongside—not once per bid—and no aggressive polling is introduced.
 

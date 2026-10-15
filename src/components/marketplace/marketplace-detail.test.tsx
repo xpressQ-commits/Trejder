@@ -29,6 +29,7 @@ describe("marketplace detail layout", () => {
           id: "11111111-1111-4111-8111-111111111111",
           identifier: { kind: "model", value: "BMW iX3" },
           registrationNumber: null,
+          publisher: null,
           modelYear: 2026,
           mileageMil: 1450,
           shortComment: "Fin bil",
@@ -61,5 +62,45 @@ describe("marketplace detail layout", () => {
       activity.compareDocumentPosition(screen.getByText("Beskrivning")) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("shows registration and publisher details only when the server supplies them", () => {
+    render(
+      <MarketplaceDetail
+        listing={{
+          id: "11111111-1111-4111-8111-111111111111",
+          identifier: { kind: "model", value: "Volvo XC60" },
+          registrationNumber: "ABC123",
+          publisher: {
+            kind: "private",
+            companyName: "Privatkonto",
+            organizationNumber: "PRIVATE-123",
+            contactName: "Anna Andersson",
+            email: "anna@example.test",
+            phone: "+46701234567",
+          },
+          modelYear: 2025,
+          mileageMil: 1200,
+          shortComment: "Fin bil",
+          equipment: [],
+          otherEquipment: null,
+          deductibleVat: false,
+          publishedAt: "2026-10-09T12:00:00.000Z",
+          expiresAt: null,
+          isOwnListing: false,
+          images: [],
+        }}
+        canBid
+        hasSubscriptionAccess
+      />,
+    );
+
+    expect(screen.getByText("ABC 123")).toBeInTheDocument();
+    expect(screen.getByText("Privatkund")).toBeInTheDocument();
+    expect(screen.getByText("Anna Andersson")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "anna@example.test" })).toHaveAttribute(
+      "href",
+      "mailto:anna@example.test",
+    );
   });
 });
