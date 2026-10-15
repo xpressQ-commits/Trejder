@@ -175,6 +175,9 @@ describe("VehicleListingForm image selection", () => {
     fireEvent.change(screen.getByLabelText("Bilmodell"), {
       target: { value: "XC60" },
     });
+    fireEvent.change(screen.getByLabelText("Registreringsnummer"), {
+      target: { value: "ABC123" },
+    });
     fireEvent.change(screen.getByLabelText("Årsmodell"), {
       target: { value: String(new Date().getFullYear()) },
     });
@@ -219,6 +222,8 @@ function ownListing(images: OwnListing["images"]): OwnListing {
   return {
     id: "11111111-1111-4111-8111-111111111111",
     identifier: { kind: "model", value: "XC60" },
+    registrationNumber: "ABC123",
+    showRegistrationNumber: false,
     mileageMil: 1400,
     modelYear: new Date().getFullYear(),
     shortComment: "Fin bil",

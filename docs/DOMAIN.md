@@ -35,7 +35,7 @@
 - Membership is unique per user and company.
 - User email identity is unique case-insensitively.
 - At most one pending invitation exists for the same normalized email and company.
-- A listing contains exactly one of registration number or vehicle model.
+- New listings contain both a normalized registration number and a separately entered vehicle model. Legacy rows may lack one of them during the backward-compatible migration period.
 - Mileage is a non-negative integer number of kilometres.
 - Image positions are 1–5 and unique per listing.
 - One company has at most one bid per listing publication round.
@@ -98,7 +98,8 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - Draft, withdrawn, matched and expired listings are not marketplace-visible. Own-company active listings remain visible in the feed.
 - Marketplace projections deliberately omit seller company/user identity, storage keys and internal metadata.
 - Marketplace images are readable only while the corresponding listing satisfies the marketplace visibility predicate.
-- Feed queries use bounded, newest-first cursor pagination and optional registration/model text and deductible-VAT filters.
+- Feed queries use bounded, newest-first cursor pagination and optional model text and deductible-VAT filters. Registration numbers are never searchable from the public marketplace.
+- Marketplace summary DTOs never contain registration numbers. Detail DTOs return the field only for the seller or when the seller opted in and the viewer has effective marketplace access. Accepted buyers receive it through their tenant-scoped deal DTO.
 - Buyer-facing bid activity contains only the listing-scoped anonymous label and first-bid timestamp. Seller detail returns a separate DTO containing at most three active bids ordered by amount descending and creation time ascending, plus the unique active-bidder count.
 
 ## Phase 2 listing policy
@@ -106,7 +107,7 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - `createDraft` derives seller company and creator from the active server context.
 - UI mileage is a whole number of Swedish mil. The server multiplies it by 10 and PostgreSQL enforces a non-negative whole-mil kilometre value no greater than 2,000,000 km.
 - Trader comments are required and limited to 500 characters.
-- A draft may be fully edited and may hold zero to five images.
+- A draft may be fully edited and may hold zero to five images. Registration visibility is locked after the first image upload, so an uncensored stored image can never become associated with hidden registration visibility.
 - Publishing locks the listing row, requires 1–5 images and changes `draft -> active`. Completed plate checks are enforced when redaction is configured. Repeated publication of the same active listing is idempotent.
 - PWT Invest AB may additionally choose an unlimited publication, represented by a null expiry. Other companies are rejected server-side if they attempt that value.
 - Active listings allow comment corrections and atomic image replacement only. Registration/model, mileage and VAT are locked; changing them requires withdrawal and a new listing.

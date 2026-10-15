@@ -6,6 +6,7 @@ import {
 } from "@/server/company/context";
 import { getMarketplaceListing } from "@/server/marketplace/listings";
 import { AccessError, errorResponse } from "@/server/security";
+import { getCompanySubscriptionAccess } from "@/server/billing";
 
 export async function GET(
   request: Request,
@@ -22,8 +23,13 @@ export async function GET(
       companyId,
       "listing:read",
     );
+    const subscription = await getCompanySubscriptionAccess(context.company.id);
     return Response.json({
-      listing: await getMarketplaceListing(context.company.id, listingId),
+      listing: await getMarketplaceListing(
+        context.company.id,
+        listingId,
+        subscription.canAccess,
+      ),
     });
   } catch (error) {
     return errorResponse(error);

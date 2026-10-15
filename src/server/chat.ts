@@ -41,7 +41,6 @@ type ThreadRow = {
   sellerName: string;
   buyerName: string;
   vehicleModel: string | null;
-  registrationNumber: string | null;
   matchedBuyerCompanyId: string | null;
   updatedAt: Date;
 };
@@ -76,15 +75,14 @@ const threadSelection = {
   sellerName: seller.legalName,
   buyerName: buyer.legalName,
   vehicleModel: vehicleListing.vehicleModel,
-  registrationNumber: vehicleListing.registrationNumber,
   matchedBuyerCompanyId: match.buyerCompanyId,
   updatedAt: chatThread.updatedAt,
 } as const;
 
 function listingLabel(
-  row: Pick<ThreadRow, "vehicleModel" | "registrationNumber">,
+  row: Pick<ThreadRow, "vehicleModel">,
 ) {
-  return row.vehicleModel ?? row.registrationNumber ?? "Bilannons";
+  return row.vehicleModel ?? "Bilannons";
 }
 
 function identityRevealed(row: ThreadRow) {

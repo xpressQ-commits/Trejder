@@ -364,6 +364,9 @@ export const vehicleListing = pgTable(
       .references(() => user.id, { onDelete: "restrict" }),
     inputKind: listingInputKind("input_kind").notNull(),
     registrationNumber: varchar("registration_number", { length: 16 }),
+    showRegistrationNumber: boolean("show_registration_number")
+      .notNull()
+      .default(false),
     vehicleModel: varchar("vehicle_model", { length: 160 }),
     modelYear: integer("model_year"),
     mileageKm: integer("mileage_km").notNull(),
@@ -422,7 +425,7 @@ export const vehicleListing = pgTable(
     ),
     check(
       "vehicle_listings_identifier_matches_kind",
-      sql`(${table.inputKind} = 'registration' AND ${table.registrationNumber} IS NOT NULL AND ${table.vehicleModel} IS NULL) OR (${table.inputKind} = 'model' AND ${table.vehicleModel} IS NOT NULL AND ${table.registrationNumber} IS NULL)`,
+      sql`(${table.inputKind} = 'registration' AND ${table.registrationNumber} IS NOT NULL) OR (${table.inputKind} = 'model' AND ${table.vehicleModel} IS NOT NULL)`,
     ),
   ],
 );

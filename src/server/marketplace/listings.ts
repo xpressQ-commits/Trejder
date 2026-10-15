@@ -15,6 +15,7 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import type { VehicleIdentifier } from "@/domain/vehicle-listing";
+import { canViewRegistrationNumber } from "@/domain/registration-number";
 import { normalizeEquipment, type EquipmentKey } from "@/domain/equipment";
 import { getDb } from "@/server/db";
 import { vehicleImage, vehicleListing } from "@/server/db/schema";
@@ -39,7 +40,9 @@ export type MarketplaceListingSummaryDto = {
   isOwnListing: boolean;
   images: MarketplaceImageDto[];
 };
-export type MarketplaceListingDetailDto = MarketplaceListingSummaryDto;
+export type MarketplaceListingDetailDto = MarketplaceListingSummaryDto & {
+  registrationNumber: string | null;
+};
 export type MarketplaceVatFilter = "all" | "yes" | "no";
 
 type Cursor = { publishedAt: string; id: string };
@@ -66,22 +69,17 @@ function encodeCursor(row: { publishedAt: Date; id: string }): string {
 }
 
 function identifier(row: {
-  inputKind: "registration" | "model";
-  registrationNumber: string | null;
   vehicleModel: string | null;
 }): VehicleIdentifier {
-  if (row.inputKind === "registration" && row.registrationNumber)
-    return { kind: "registration", value: row.registrationNumber };
-  if (row.inputKind === "model" && row.vehicleModel)
+  if (row.vehicleModel)
     return { kind: "model", value: row.vehicleModel };
-  throw new Error("Vehicle listing identifier invariant violated");
+  return { kind: "model", value: "Bilannons" };
 }
 
 type MarketplaceRow = {
   id: string;
   sellerCompanyId: string;
-  inputKind: "registration" | "model";
-  registrationNumber: string | null;
+  showRegistrationNumber: boolean;
   vehicleModel: string | null;
   mileageKm: number;
   modelYear: number | null;
@@ -123,8 +121,7 @@ function toDto(
 const marketplaceSelection = {
   id: vehicleListing.id,
   sellerCompanyId: vehicleListing.sellerCompanyId,
-  inputKind: vehicleListing.inputKind,
-  registrationNumber: vehicleListing.registrationNumber,
+  showRegistrationNumber: vehicleListing.showRegistrationNumber,
   vehicleModel: vehicleListing.vehicleModel,
   mileageKm: vehicleListing.mileageKm,
   modelYear: vehicleListing.modelYear,
@@ -163,10 +160,7 @@ export async function listMarketplaceListings(input: {
     if (search.length > 160)
       throw new AccessError(400, "INVALID_MARKETPLACE_SEARCH");
     filters.push(
-      or(
-        ilike(vehicleListing.registrationNumber, `%${search}%`),
-        ilike(vehicleListing.vehicleModel, `%${search}%`),
-      )!,
+      ilike(vehicleListing.vehicleModel, `%${search}%`),
     );
   }
   if (input.vat === "yes") filters.push(eq(vehicleListing.deductibleVat, true));
@@ -200,6 +194,7 @@ export async function listMarketplaceListings(input: {
           .select({
             listingId: vehicleImage.listingId,
             position: vehicleImage.position,
+            status: vehicleImage.plateRedactionStatus,
           })
           .from(vehicleImage)
           .where(
@@ -209,10 +204,6 @@ export async function listMarketplaceListings(input: {
                 page.map(({ id }) => id),
               ),
               eq(vehicleImage.position, 1),
-              inArray(vehicleImage.plateRedactionStatus, [
-                "NO_PLATE_DETECTED",
-                "PLATE_REDACTED",
-              ]),
             ),
           )
           .orderBy(asc(vehicleImage.position));
@@ -220,7 +211,12 @@ export async function listMarketplaceListings(input: {
     listings: page.map((row) =>
       toDto(
         row,
-        images.filter((image) => image.listingId === row.id),
+        images.filter(
+          (image) =>
+            image.listingId === row.id &&
+            (row.showRegistrationNumber ||
+              ["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status)),
+        ),
         input.activeCompanyId,
       ),
     ),
@@ -232,10 +228,14 @@ export async function listMarketplaceListings(input: {
 export async function getMarketplaceListing(
   activeCompanyId: string,
   listingId: string,
+  hasMarketplaceAccess = false,
 ): Promise<MarketplaceListingDetailDto> {
   const db = getDb();
   const [row] = await db
-    .select(marketplaceSelection)
+    .select({
+      ...marketplaceSelection,
+      registrationNumber: vehicleListing.registrationNumber,
+    })
     .from(vehicleListing)
     .where(
       and(
@@ -252,19 +252,36 @@ export async function getMarketplaceListing(
   if (!row?.publishedAt)
     throw new AccessError(404, "MARKETPLACE_LISTING_NOT_FOUND");
   const images = await db
-    .select({ position: vehicleImage.position })
+    .select({
+      position: vehicleImage.position,
+      status: vehicleImage.plateRedactionStatus,
+    })
     .from(vehicleImage)
     .where(
       and(
         eq(vehicleImage.listingId, row.id),
-        inArray(vehicleImage.plateRedactionStatus, [
-          "NO_PLATE_DETECTED",
-          "PLATE_REDACTED",
-        ]),
       ),
     )
     .orderBy(asc(vehicleImage.position));
-  return toDto(row as MarketplaceRow, images, activeCompanyId);
+  const detail = toDto(
+    row as MarketplaceRow,
+    images.filter(
+      (image) =>
+        row.showRegistrationNumber ||
+        ["NO_PLATE_DETECTED", "PLATE_REDACTED"].includes(image.status),
+    ),
+    activeCompanyId,
+  );
+  return {
+    ...detail,
+    registrationNumber: canViewRegistrationNumber({
+      isSeller: row.sellerCompanyId === activeCompanyId,
+      showRegistrationNumber: row.showRegistrationNumber,
+      hasMarketplaceAccess,
+    })
+      ? row.registrationNumber
+      : null,
+  };
 }
 
 export async function readMarketplaceListingImage(input: {
@@ -283,10 +300,13 @@ export async function readMarketplaceListingImage(input: {
       and(
         eq(vehicleImage.listingId, input.listingId),
         eq(vehicleImage.position, input.position),
-        inArray(vehicleImage.plateRedactionStatus, [
-          "NO_PLATE_DETECTED",
-          "PLATE_REDACTED",
-        ]),
+        or(
+          eq(vehicleListing.showRegistrationNumber, true),
+          inArray(vehicleImage.plateRedactionStatus, [
+            "NO_PLATE_DETECTED",
+            "PLATE_REDACTED",
+          ]),
+        ),
         eq(vehicleListing.status, "active"),
         isNotNull(vehicleListing.publishedAt),
         or(

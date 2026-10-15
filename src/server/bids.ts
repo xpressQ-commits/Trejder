@@ -359,7 +359,6 @@ export async function rejectBid(input: {
         expiresAt: vehicleListing.expiresAt,
         publicationRound: vehicleListing.publicationRound,
         vehicleModel: vehicleListing.vehicleModel,
-        registrationNumber: vehicleListing.registrationNumber,
       })
       .from(vehicleListing)
       .where(
@@ -413,7 +412,7 @@ export async function rejectBid(input: {
       },
     });
     const listingLabel =
-      listing.vehicleModel ?? listing.registrationNumber ?? "bilannonsen";
+      listing.vehicleModel ?? "bilannonsen";
     pushRecipients = await notifyCompanyMembers(tx, target.bidderCompanyId, {
       type: "bid.rejected",
       body: `Ditt bud på ${listingLabel} har avböjts.`,

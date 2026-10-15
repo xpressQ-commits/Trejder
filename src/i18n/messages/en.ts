@@ -73,6 +73,16 @@ export const en = {
   "deals.openDeal": "Open deal",
   "deals.noneInSection": "No deals here.",
   "deals.acceptedLabel": "accepted",
+  "deals.registrationNumber": "Registration number",
+  "listings.registrationNumber": "Registration number",
+  "listings.showRegistrationNumber": "Show the registration number in the listing",
+  "listings.registrationVisibleHelp":
+    "The registration number is shown to authorized marketplace users and license plates are not blurred in images.",
+  "listings.registrationHiddenHelp":
+    "The registration number is hidden and license plates are blurred automatically in images.",
+  "listings.registrationVisible": "Visible registration number",
+  "listings.registrationHidden": "Hidden registration number",
+  "listings.registrationRequired": "A valid registration number is required.",
   "notifications.title": "Recent notifications",
   "notifications.markRead": "Mark as read",
   "notifications.bidReceived": "You have received a new bid.",

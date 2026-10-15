@@ -9,6 +9,7 @@ import { createOrGetChatThread } from "@/server/chat";
 import { getCompanyDeal } from "@/server/deals";
 import { formatDate, formatMoney } from "@/i18n";
 import { getTranslations } from "@/i18n/server";
+import { RegistrationPlate } from "@/components/vehicles/registration-plate";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,14 @@ export default async function DealDetailPage({
               </dd>
             </div>
           </dl>
+          {deal.registrationNumber ? (
+            <div className="mt-6">
+              <RegistrationPlate
+                value={deal.registrationNumber}
+                label={t("deals.registrationNumber")}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem]">

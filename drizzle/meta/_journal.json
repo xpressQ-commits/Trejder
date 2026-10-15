@@ -155,6 +155,13 @@
       "when": 1791559220030,
       "tag": "0021_trejder_bid_rejection",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792069679191,
+      "tag": "0022_trejder_registration_visibility",
+      "breakpoints": true
     }
   ]
 }

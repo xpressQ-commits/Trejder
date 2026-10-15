@@ -71,6 +71,16 @@ export const sv = {
   "deals.openDeal": "Öppna affär",
   "deals.noneInSection": "Inga affärer här.",
   "deals.acceptedLabel": "accepterad",
+  "deals.registrationNumber": "Registreringsnummer",
+  "listings.registrationNumber": "Registreringsnummer",
+  "listings.showRegistrationNumber": "Visa registreringsnumret i annonsen",
+  "listings.registrationVisibleHelp":
+    "Registreringsnumret visas för behöriga marknadsanvändare och skyltar censureras inte i bilderna.",
+  "listings.registrationHiddenHelp":
+    "Registreringsnumret döljs och registreringsskyltar censureras automatiskt i bilderna.",
+  "listings.registrationVisible": "Synligt registreringsnummer",
+  "listings.registrationHidden": "Dolt registreringsnummer",
+  "listings.registrationRequired": "Ett giltigt registreringsnummer måste anges.",
   "notifications.title": "Senaste notiser",
   "notifications.markRead": "Markera som lästa",
   "notifications.bidReceived": "Du har fått ett nytt bud.",

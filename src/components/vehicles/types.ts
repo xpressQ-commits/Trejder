@@ -23,6 +23,8 @@ export type ListingImage = {
 export type OwnListing = {
   id: string;
   identifier: ListingIdentifier;
+  registrationNumber: string | null;
+  showRegistrationNumber: boolean;
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;
@@ -51,6 +53,8 @@ export function identifierLabel(identifier: ListingIdentifier) {
 export function serializeOwnListing(listing: {
   id: string;
   identifier: ListingIdentifier;
+  registrationNumber: string | null;
+  showRegistrationNumber: boolean;
   mileageMil: number;
   modelYear: number | null;
   shortComment: string;

@@ -13,6 +13,7 @@ import {
 import { AccessError } from "@/server/security";
 import { getImageStorage } from "@/server/storage/images";
 import { confirmDealParty } from "@/domain/deal";
+import { formatRegistrationNumber } from "@/domain/registration-number";
 
 const seller = alias(company, "deal_seller");
 const buyer = alias(company, "deal_buyer");
@@ -77,6 +78,9 @@ function toDeal(row: DealRow, companyId: string) {
       ? row.buyerCompletedAt
       : row.sellerCompletedAt,
     listingLabel: row.vehicleModel ?? row.registrationNumber ?? "Bilannons",
+    registrationNumber: row.registrationNumber
+      ? formatRegistrationNumber(row.registrationNumber)
+      : null,
     modelYear: row.modelYear,
     mileageMil: row.mileageKm / 10,
     imageUrl: `/api/deals/${row.id}/images/1`,
