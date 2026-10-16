@@ -44,6 +44,7 @@ const dealSelection = {
   registrationNumber: vehicleListing.registrationNumber,
   modelYear: vehicleListing.modelYear,
   mileageKm: vehicleListing.mileageKm,
+  deductibleVat: vehicleListing.deductibleVat,
 } as const;
 
 function baseDealQuery() {
@@ -83,6 +84,7 @@ function toDeal(row: DealRow, companyId: string) {
       : null,
     modelYear: row.modelYear,
     mileageMil: row.mileageKm / 10,
+    deductibleVat: row.deductibleVat,
     imageUrl: `/api/deals/${row.id}/images/1`,
     counterparty: viewerIsSeller
       ? {

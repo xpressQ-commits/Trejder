@@ -57,6 +57,7 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 
 - Migrations run with a migration owner; runtime should use a less-privileged PostgreSQL role.
 - Vehicle images, damage images and listing documents live in private storage. Development uses an ignored local directory through the same private-storage contract. Production uses a private Cloudflare R2 bucket through the S3-compatible adapter; objects are never exposed by public bucket URL.
+- Generated agreement PDFs and company logos reuse the private-storage contract. Agreement DTOs expose only tenant-authorized application download routes; object keys remain server-only. PDF generation uses `pdf-lib` on the server and does not depend on browser CSS or screenshots.
 - The application is deployed as one service plus PostgreSQL and object storage.
 - Plate detection is synchronous and server-side through a narrow provider adapter. The current provider is Plate Recognizer Snapshot Cloud; Sharp performs EXIF normalization and local blurring. No queue is introduced at the current volume.
 - Observability must avoid bidder identity in seller-facing logs, errors, analytics and URLs.
@@ -70,6 +71,12 @@ Transport inputs will be validated with Zod and mapped field-by-field. Drizzle r
 - A Railway cron invokes `POST /api/internal/billing/seat-sync` with `Authorization: Bearer $BILLING_SYNC_SECRET`; the endpoint drains bounded pending/failed sync rows. The random bearer value is separate from Stripe credentials.
 
 Authorized image reads go through a tenant-scoped application route. DTOs contain that route, never the underlying object key. Object keys are opaque values with 256 random bits and contain no tenant or listing identifier; the bucket remains private.
+
+### Agreements
+
+`Agreement` is a first-class aggregate with a `draft -> generated` transition. A generated record is immutable in the first version and can only be duplicated into a new draft. All mutations resolve the selected company from the authenticated HttpOnly context and then re-check active dealer membership plus the Agreements entitlement. A PostgreSQL sequence generates human-readable `TA-YYYY-NNNNNN` references race-safely. Optimistic draft versions protect concurrent edits, and generation conditionally locks the final row after the PDF has been written; conflicting orphan objects are deleted.
+
+Money is stored and calculated as integer öre. VAT/VMB calculation lives in `src/domain/agreement.ts`. Legal copy is isolated in `src/domain/agreement-terms.ts`. Company, counterparty and vehicle values are persisted as snapshots, while the private PDF stores a checksum, byte length and PDF version for traceability.
 
 Image upload produces two durable variants after EXIF normalization and optional plate redaction: the full processed object and a bounded, heavily blurred WebP preview. Marketplace image routes reload central subscription/free/platform entitlement on every request and select one variant server-side. They use `private, no-store`; CSS blur is not a security boundary. Legacy images without a stored preview are blurred server-side as a compatibility fallback until replaced.
 

@@ -159,6 +159,14 @@ export function createPrivateDocumentObjectKey(mime: SupportedDocumentMime): str
   return `private/documents/${randomBytes(32).toString("hex")}.${ext}`;
 }
 
+export function createPrivateAgreementObjectKey(): string {
+  return `private/agreements/${randomBytes(32).toString("hex")}.pdf`;
+}
+
+export function createPrivateCompanyLogoObjectKey(): string {
+  return `private/company-logos/${randomBytes(32).toString("hex")}.png`;
+}
+
 class LocalPrivateStorage implements PrivateImageStorage {
   constructor(private readonly root: string) {}
   private resolve(key: string) {

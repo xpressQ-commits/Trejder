@@ -10,9 +10,17 @@ import {
 export function CompanyContactForm({
   email,
   phone,
+  addressLine1,
+  postalCode,
+  city,
+  vatNumber,
 }: {
   email: string;
   phone: string;
+  addressLine1: string;
+  postalCode: string;
+  city: string;
+  vatNumber: string;
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{
@@ -31,6 +39,10 @@ export function CompanyContactForm({
       body: JSON.stringify({
         contactEmail: data.get("contactEmail"),
         contactPhone: data.get("contactPhone"),
+        addressLine1: data.get("addressLine1"),
+        postalCode: data.get("postalCode"),
+        city: data.get("city"),
+        vatNumber: data.get("vatNumber"),
       }),
     });
     setMessage(
@@ -81,6 +93,33 @@ export function CompanyContactForm({
           required
           minLength={5}
           maxLength={40}
+        />
+        <Field
+          label="Gatuadress"
+          name="addressLine1"
+          autoComplete="street-address"
+          defaultValue={addressLine1}
+          maxLength={240}
+        />
+        <Field
+          label="Postnummer"
+          name="postalCode"
+          autoComplete="postal-code"
+          defaultValue={postalCode}
+          maxLength={12}
+        />
+        <Field
+          label="Ort"
+          name="city"
+          autoComplete="address-level2"
+          defaultValue={city}
+          maxLength={120}
+        />
+        <Field
+          label="Momsregistreringsnummer"
+          name="vatNumber"
+          defaultValue={vatNumber}
+          maxLength={32}
         />
       </div>
       <button className={primaryButtonClassName} disabled={pending}>

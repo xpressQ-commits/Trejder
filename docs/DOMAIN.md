@@ -3,6 +3,7 @@
 ## Core records
 
 - **Company:** a dealer business; owns listings and bids through its users. One protected flag identifies the Trejder platform-owner company.
+- **Agreement:** a tenant-owned vehicle purchase/sale agreement with server-generated number, direction, company/counterparty/vehicle snapshots, integer-öre amounts, VAT mode, payment allocations, optional Deal relation and private generated PDF reference.
 - **User:** an authenticated human identity.
 - **CompanyMembership:** connects one user to one company with `ADMIN`, `TRADER` or `VIEWER` authority and an active, suspended or revoked state.
 - **CompanyInvitation:** one-time, expiring invitation to a company and role.
@@ -127,3 +128,13 @@ Phase 2 implements only the seller company's own listing use cases; marketplace 
 - A member phone number belongs to the company membership, not the global user, so the same person can keep different company contact details without cross-tenant updates.
 - A company-row lock serializes every membership mutation that could change the number of active ADMINs. The final active ADMIN cannot be demoted, suspended or revoked.
 - Suspended and revoked memberships are excluded whenever dealer context is resolved, so an existing authentication session does not preserve dealer access.
+
+## Agreement transitions and invariants
+
+- `draft -> generated` is the only implemented finalization transition. Generated agreements cannot be edited; duplication creates a new numbered draft.
+- Draft updates require the expected optimistic version and refresh the active-company snapshot. Generation keeps that saved snapshot and never re-reads mutable company values into the historical document.
+- `company_buys` places the active company as buyer; `company_sells` places it as seller. The counterparty occupies the opposite position.
+- Deductible-VAT totals satisfy `net + VAT = total`. Margin-scheme agreements keep net and VAT components null so no ordinary deductible VAT is exposed.
+- Payment allocations cannot exceed the total purchase price. Version one allows one allocation in transport validation while the stored JSON shape is an array for future expansion.
+- Agreement numbers come from `trejder_agreement_number_seq`; uniqueness is enforced by PostgreSQL.
+- Future trade-in vehicles, multiple finance recipients and electronic signatures must extend the aggregate explicitly rather than overloading current fields.
