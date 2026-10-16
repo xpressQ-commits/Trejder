@@ -4,6 +4,7 @@ import { LogoutButton } from "@/components/app-shell/session-controls";
 import { PrivateProfileForm } from "@/components/account/private-profile-form";
 import { CompanyBillingActions } from "@/components/company/company-billing-actions";
 import { CompanyContactForm } from "@/components/company/company-contact-form";
+import { CompanyLogoForm } from "@/components/company/company-logo-form";
 import { MemberAdmin } from "@/components/company/member-admin";
 import { PreferencesForm } from "@/components/preferences/preferences-form";
 import { getTranslations } from "@/i18n/server";
@@ -109,15 +110,37 @@ export default async function SettingsPage({
             value={contact.contactPhone || "Saknas"}
           />
           <Info
+            label="Adress"
+            value={contact.addressLine1 || "Saknas"}
+          />
+          <Info
+            label="Postnummer och ort"
+            value={
+              [contact.postalCode, contact.city].filter(Boolean).join(" ") ||
+              "Saknas"
+            }
+          />
+          <Info
+            label="Momsregistreringsnummer"
+            value={contact.vatNumber || "Saknas"}
+          />
+          <Info
             label="Din behörighet"
             value={roleLabels[context.membership.role]}
           />
         </dl>
         {isAdmin ? (
-          <CompanyContactForm
-            email={contact.contactEmail}
-            phone={contact.contactPhone ?? ""}
-          />
+          <>
+            <CompanyContactForm
+              email={contact.contactEmail}
+              phone={contact.contactPhone ?? ""}
+              addressLine1={contact.addressLine1 ?? ""}
+              postalCode={contact.postalCode ?? ""}
+              city={contact.city ?? ""}
+              vatNumber={contact.vatNumber ?? ""}
+            />
+            <CompanyLogoForm hasLogo={contact.hasLogo} />
+          </>
         ) : null}
       </section>
 

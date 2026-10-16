@@ -52,6 +52,10 @@ Expired listings are separated into the seller's Inaktiva view and may be republ
 
 Optional comments, postcode-derived county, structured deviations, up to five separate damage images and up to ten protected documents extend create/edit/detail without creating a wizard. Damage images share the plate-redaction policy. Migration `0023` adds the listing fields and separate media records. Marketplace image delivery enforces the central access entitlement server-side and returns only a pre-generated blurred preview to inactive/unpaid dealers.
 
+## Administrator agreement tool (implemented in code)
+
+Dealer ADMIN and platform administrators can create, preview, generate, download and duplicate tenant-scoped vehicle agreements. Migration `0024_trejder_agreements` adds company agreement-profile fields, private logo metadata, agreement snapshots, race-safe numbering and immutable PDF metadata. A future PRO company tier is modeled as an entitlement without introducing a role or incomplete checkout. Legal/VMB wording requires Swedish legal and accounting approval before production use. Multiple finance recipients, trade-ins, e-signing and English PDFs remain later work.
+
 ## Phase 6 — Private sellers (approved)
 
 Verified private-customer onboarding, seller-only navigation and listings, anonymous public Q&A, dealer bidding, bid-gated anonymous messaging, transactional acceptance, matched-party identity reveal, retained-history deal chat and identity-safe notifications.

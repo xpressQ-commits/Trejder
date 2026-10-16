@@ -6,6 +6,7 @@ import {
   Handshake,
   LayoutDashboard,
   MessageCircle,
+  FileSignature,
   Settings,
   ShieldCheck,
   Store,
@@ -33,6 +34,7 @@ export function AppShell({
   role,
   companies,
   isPlatformAdmin = false,
+  canUseAgreements = false,
   initialNotifications,
   initialUnreadChatCount,
 }: {
@@ -43,6 +45,7 @@ export function AppShell({
   role: "admin" | "trader" | "viewer" | "private_customer";
   companies: CompanyOption[];
   isPlatformAdmin?: boolean;
+  canUseAgreements?: boolean;
   initialNotifications: HeaderNotification[];
   initialUnreadChatCount: number;
 }) {
@@ -86,6 +89,9 @@ export function AppShell({
           badge: unreadChatCount,
         },
         { href: "/app/affarer", label: t("nav.deals"), icon: Handshake },
+        ...(canUseAgreements
+          ? [{ href: "/app/avtal", label: t("nav.agreements"), icon: FileSignature }]
+          : []),
         ...(isPlatformAdmin
           ? [{ href: "/admin", label: t("nav.superadmin"), icon: ShieldCheck }]
           : []),

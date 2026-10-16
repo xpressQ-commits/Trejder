@@ -26,6 +26,8 @@ Private-customer accounts use a dedicated `private_customer` membership role and
 
 Money is integer öre. The current server policy is 49,900 öre excluding VAT on each side of a dealer match. Acceptance snapshots both fees and a terms version in the Match. Client-supplied amount, fee, party or state fields cannot populate the match.
 
+Agreement purchase prices, VAT components and finance allocations are also integer öre and recomputed server-side. The browser cannot supply the active company snapshot, agreement number, status, PDF object key, checksum or audit actor. Finance allocations greater than the purchase price are rejected.
+
 The future accepted-match price target is 89,900 öre excluding VAT per dealer side, but Phase 3.5 does not change or charge the runtime match fee. Premium billing is separately fixed at 69,900 öre/month plus 19,900 öre per active user above two. Only the canonical server seat function supplies Stripe quantity.
 
 PWT Invest AB's platform-owner flag is a protected database policy input. The server independently zeroes only that company's match-fee side; a non-exempt counterparty retains the normal fee snapshot. No browser-supplied company identity or exemption value participates.
@@ -45,6 +47,8 @@ Platform-owner companies are rejected before Stripe customer, Checkout or Portal
 Publishing, republication, bid mutation and acceptance are server-controlled transitions. Republication locks the listing, verifies server-derived expiry, closes the current bid round and increments the round atomically. Acceptance uses a single transaction, row locking/conditional updates and unique constraints. Sensitive commands use idempotency where retries can duplicate effects. Successful important actions append a sanitized audit record attributed from the session, never the request body.
 
 Production database privileges should make match commercial snapshots and audit rows append-only/immutable for the runtime role.
+
+Agreement creation, draft update, generation and download use fresh membership/entitlement checks and tenant predicates. Generated agreements are immutable. Creation, update, generation and download append sanitized audit events; personal identifiers, bank accounts and full agreement payloads are never written to ordinary logs or audit metadata. Agreement PDFs and logos use opaque private object keys and are returned with `private, no-store`, `nosniff`, restrictive CSP and safe content disposition. Database and object-storage access controls and encryption at rest remain required production infrastructure because agreement JSON may contain personal and financial data.
 
 ## Authentication baseline and work before launch
 

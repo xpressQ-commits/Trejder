@@ -10,6 +10,7 @@ import {
   type ActiveCompanyContext,
 } from "@/server/company/context";
 import { AccessError } from "@/server/security";
+import { requireAgreementAccess } from "@/server/agreements/access";
 
 async function withBillingRemediation<T>(
   operation: () => Promise<T>,
@@ -65,6 +66,13 @@ export async function getCurrentDealerContext() {
     requestHeaders,
     selectedCompanyId,
     "listing:read",
+  );
+}
+
+export async function getCurrentAgreementContext() {
+  return requireAgreementAccess(
+    await headers(),
+    (await cookies()).get(ACTIVE_COMPANY_COOKIE)?.value ?? null,
   );
 }
 

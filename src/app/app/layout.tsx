@@ -15,6 +15,7 @@ import {
 import { hasPlatformAdminAuthority } from "@/server/platform-admin";
 import { countUnreadChatMessages } from "@/server/chat";
 import { listUserNotifications } from "@/server/notifications";
+import { canUseAgreementTool } from "@/domain/agreement-access";
 
 export default async function DealerLayout({
   children,
@@ -65,6 +66,11 @@ export default async function DealerLayout({
       role={selected.role}
       companies={companies}
       isPlatformAdmin={isPlatformAdmin}
+      canUseAgreements={canUseAgreementTool({
+        isPlatformAdmin,
+        role: selected.role,
+        companyTier: "standard",
+      })}
       initialNotifications={notifications.map((item) => ({
         ...item,
         createdAt: item.createdAt.toISOString(),

@@ -58,6 +58,12 @@ Marketplace images are entitlement-sensitive. Sellers and privileged administrat
 
 No vehicle registry integration, CRM, accounting, Fortnox, Blocket, inventory/ERP, financing, warranties, automated valuation, AI descriptions, chart dashboards, native apps, transaction charging, coupons, credits, annual plans or custom card collection. The platform-owner fee exemption is a policy snapshot foundation, not transaction charging.
 
+## Agreement tool
+
+Trejder includes an administrator-facing agreement tool for Swedish vehicle purchase and sale agreements. A dealer ADMIN or platform administrator can create a tenant-owned draft manually or prefill it from an accepted Trejder deal, preview it, and generate an immutable Swedish A4 PDF. Company, counterparty, vehicle, tax treatment and payment data are snapshots; later profile changes never rewrite an already generated agreement. PDFs and company logos are private objects served only through freshly authorized application routes.
+
+`PRO` is reserved as a future company product tier/entitlement and is never a user role. No PRO checkout or synthetic subscription state exists in the current release. The first agreement version supports SEK, one finance settlement recipient and physical signature fields. Multiple allocations, trade-in vehicles, electronic signing and English PDF templates are explicit future work.
+
 ## Product language and units
 
 UI copy is Swedish. The user-facing mileage convention is Swedish `mil`; the database stores canonical integer kilometres. Currency is SEK and monetary values are integer öre.

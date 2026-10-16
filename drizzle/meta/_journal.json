@@ -169,6 +169,13 @@
       "when": 1792073916159,
       "tag": "0023_trejder_listing_details",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792142098038,
+      "tag": "0024_trejder_agreements",
+      "breakpoints": true
     }
   ]
 }

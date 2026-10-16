@@ -15,6 +15,10 @@ const inputSchema = z
   .object({
     contactEmail: z.email().max(320),
     contactPhone: z.string().trim().min(5).max(40),
+    addressLine1: z.string().trim().max(240),
+    postalCode: z.string().trim().max(12),
+    city: z.string().trim().max(120),
+    vatNumber: z.string().trim().max(32),
   })
   .strict();
 

@@ -2,11 +2,13 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   foreignKey,
   index,
   integer,
   jsonb,
   pgEnum,
+  pgSequence,
   pgTable,
   text,
   timestamp,
@@ -15,6 +17,14 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import type {
+  AgreementCompanySnapshot,
+  AgreementCounterpartySnapshot,
+  AgreementFinanceAllocation,
+  AgreementHandoverSnapshot,
+  AgreementPaymentDetails,
+  AgreementVehicleSnapshot,
+} from "@/domain/agreement";
 
 export const companyStatus = pgEnum("company_status", ["active", "suspended"]);
 export const companyKind = pgEnum("company_kind", ["dealer", "private"]);
@@ -72,6 +82,24 @@ export const dealStatus = pgEnum("deal_status", [
   "in_progress",
   "completed",
 ]);
+export const agreementStatus = pgEnum("agreement_status", [
+  "draft",
+  "generated",
+  "completed",
+  "cancelled",
+]);
+export const agreementDirection = pgEnum("agreement_direction", [
+  "company_buys",
+  "company_sells",
+]);
+export const agreementVatMode = pgEnum("agreement_vat_mode", [
+  "deductible",
+  "margin_scheme",
+]);
+export const agreementNumberSequence = pgSequence(
+  "trejder_agreement_number_seq",
+  { startWith: 1, increment: 1 },
+);
 export const accountApplicationStatus = pgEnum("account_application_status", [
   "pending",
   "approved",
@@ -145,6 +173,12 @@ export const company = pgTable("companies", {
     .unique(),
   contactEmail: varchar("contact_email", { length: 320 }).notNull(),
   contactPhone: varchar("contact_phone", { length: 40 }),
+  addressLine1: varchar("address_line_1", { length: 240 }),
+  postalCode: varchar("postal_code", { length: 12 }),
+  city: varchar("city", { length: 120 }),
+  vatNumber: varchar("vat_number", { length: 32 }),
+  logoObjectKey: text("logo_object_key").unique(),
+  logoMimeType: varchar("logo_mime_type", { length: 40 }),
   isPlatformOwner: boolean("is_platform_owner").notNull().default(false),
   kind: companyKind("kind").notNull().default("dealer"),
   status: companyStatus("status").notNull().default("active"),
@@ -692,6 +726,88 @@ export const match = pgTable(
     check("matches_currency_sek", sql`${table.currency} = 'SEK'`),
     index("matches_seller_idx").on(table.sellerCompanyId),
     index("matches_buyer_idx").on(table.buyerCompanyId),
+  ],
+);
+
+export const agreement = pgTable(
+  "agreements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agreementNumber: varchar("agreement_number", { length: 40 })
+      .notNull()
+      .unique(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "restrict" }),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    dealId: uuid("deal_id").references(() => match.id, {
+      onDelete: "restrict",
+    }),
+    direction: agreementDirection("direction").notNull(),
+    status: agreementStatus("status").notNull().default("draft"),
+    agreementDate: date("agreement_date", { mode: "string" }).notNull(),
+    companySnapshot: jsonb("company_snapshot")
+      .$type<AgreementCompanySnapshot>()
+      .notNull(),
+    counterpartySnapshot: jsonb("counterparty_snapshot")
+      .$type<AgreementCounterpartySnapshot>()
+      .notNull(),
+    vehicleSnapshot: jsonb("vehicle_snapshot")
+      .$type<AgreementVehicleSnapshot>()
+      .notNull(),
+    vatMode: agreementVatMode("vat_mode").notNull(),
+    totalAmountOre: integer("total_amount_ore").notNull(),
+    netAmountOre: integer("net_amount_ore"),
+    vatAmountOre: integer("vat_amount_ore"),
+    financeAllocations: jsonb("finance_allocations")
+      .$type<AgreementFinanceAllocation[]>()
+      .notNull()
+      .default([]),
+    paymentDetails: jsonb("payment_details")
+      .$type<AgreementPaymentDetails>()
+      .notNull(),
+    handoverSnapshot: jsonb("handover_snapshot")
+      .$type<AgreementHandoverSnapshot>()
+      .notNull(),
+    additionalTerms: varchar("additional_terms", { length: 5000 })
+      .notNull()
+      .default(""),
+    termsVersion: varchar("terms_version", { length: 80 }).notNull(),
+    pdfObjectKey: text("pdf_object_key").unique(),
+    pdfChecksumSha256: varchar("pdf_checksum_sha256", { length: 64 }),
+    pdfByteSize: integer("pdf_byte_size"),
+    pdfVersion: integer("pdf_version").notNull().default(0),
+    version: integer("version").notNull().default(1),
+    generatedAt: timestamp("generated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("agreements_company_number_uq").on(
+      table.companyId,
+      table.agreementNumber,
+    ),
+    index("agreements_company_status_created_idx").on(
+      table.companyId,
+      table.status,
+      table.createdAt,
+    ),
+    index("agreements_deal_idx").on(table.dealId),
+    check("agreements_total_positive", sql`${table.totalAmountOre} > 0`),
+    check("agreements_net_nonnegative", sql`${table.netAmountOre} IS NULL OR ${table.netAmountOre} >= 0`),
+    check("agreements_vat_nonnegative", sql`${table.vatAmountOre} IS NULL OR ${table.vatAmountOre} >= 0`),
+    check("agreements_version_positive", sql`${table.version} > 0`),
+    check("agreements_pdf_version_nonnegative", sql`${table.pdfVersion} >= 0`),
+    check("agreements_currency_shape", sql`${table.vatMode} <> 'deductible' OR (${table.netAmountOre} IS NOT NULL AND ${table.vatAmountOre} IS NOT NULL AND ${table.netAmountOre} + ${table.vatAmountOre} = ${table.totalAmountOre})`),
+    check("agreements_margin_vat_hidden", sql`${table.vatMode} <> 'margin_scheme' OR (${table.netAmountOre} IS NULL AND ${table.vatAmountOre} IS NULL)`),
+    check("agreements_generated_pdf", sql`${table.status} NOT IN ('generated', 'completed') OR (${table.pdfObjectKey} IS NOT NULL AND ${table.pdfChecksumSha256} IS NOT NULL AND ${table.generatedAt} IS NOT NULL)`),
   ],
 );
 
