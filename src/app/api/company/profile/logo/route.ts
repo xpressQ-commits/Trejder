@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import { optimizeCompanyLogo } from "@/server/storage/company-logo";
 import { cookies } from "next/headers";
 import {
   ACTIVE_COMPANY_COOKIE,
@@ -56,18 +56,7 @@ export async function POST(request: Request) {
     }
     const source = new Uint8Array(await file.arrayBuffer());
     validateImage(source, file.type);
-    const optimized = new Uint8Array(
-      await sharp(source)
-        .rotate()
-        .resize({
-          width: 720,
-          height: 260,
-          fit: "inside",
-          withoutEnlargement: true,
-        })
-        .png({ compressionLevel: 9 })
-        .toBuffer(),
-    );
+    const optimized = await optimizeCompanyLogo(source);
     objectKey = createPrivateCompanyLogoObjectKey();
     const storage = getImageStorage();
     await storage.put(objectKey, optimized, "image/png");

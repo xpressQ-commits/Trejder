@@ -65,7 +65,7 @@ export function CompanyLogoForm({
       <div>
         <h3 className="text-lg font-semibold">Företagslogotyp</h3>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Logotypen används automatiskt i nya PDF-avtal och optimeras vid uppladdning.
+          Vita och genomskinliga marginaler beskärs automatiskt. Logotypen används i nya PDF-avtal.
         </p>
       </div>
       {message ? <FormMessage type={message.type}>{message.text}</FormMessage> : null}
