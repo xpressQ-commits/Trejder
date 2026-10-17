@@ -22,6 +22,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/ui/form-controls";
+import { CompanyLogoForm } from "@/components/company/company-logo-form";
 import type { AgreementDealOption, AgreementView } from "./types";
 
 type CompanyProfile = {
@@ -168,6 +169,7 @@ export function AgreementForm({
     initialAgreement?.additionalTerms ?? "",
   );
   const [preview, setPreview] = useState(false);
+  const [hasCompanyLogo, setHasCompanyLogo] = useState(company.hasLogo);
   const [pending, setPending] = useState<"save" | "generate" | null>(null);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
@@ -340,7 +342,7 @@ export function AgreementForm({
         </div>
         {message ? <div className="mb-5"><FormMessage type={message.type}>{message.text}</FormMessage></div> : null}
         <AgreementPreview
-          company={company}
+          company={{ ...company, hasLogo: hasCompanyLogo }}
           direction={direction}
           agreementDate={agreementDate}
           counterparty={counterparty}
@@ -380,8 +382,13 @@ export function AgreementForm({
           <Info label="Adress" value={[company.addressLine1, company.postalCode, company.city].filter(Boolean).join(", ")} missing />
           <Info label="Telefon" value={company.contactPhone ?? ""} missing />
           <Info label="E-post" value={company.contactEmail} />
-          <Info label="Logotyp" value={company.hasLogo ? "Uppladdad" : "Textheader används"} />
+          <Info label="Logotyp" value={hasCompanyLogo ? "Uppladdad" : "Textheader används"} />
         </div>
+        <CompanyLogoForm
+          hasLogo={hasCompanyLogo}
+          onUploaded={() => setHasCompanyLogo(true)}
+          embedded
+        />
         {![company.addressLine1, company.postalCode, company.city, company.contactPhone].every(Boolean) ? (
           <p className="rounded-lg bg-[var(--warning-surface)] px-3 py-2 text-sm text-[var(--warning)]">
             Företagsprofilen måste kompletteras före PDF-generering. <Link className="font-semibold underline" href="/app/installningar">Öppna Inställningar</Link>

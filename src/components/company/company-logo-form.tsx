@@ -1,44 +1,66 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 import {
   FormMessage,
   primaryButtonClassName,
 } from "@/components/ui/form-controls";
 
-export function CompanyLogoForm({ hasLogo }: { hasLogo: boolean }) {
+export function CompanyLogoForm({
+  hasLogo,
+  onUploaded,
+  embedded = false,
+}: {
+  hasLogo: boolean;
+  onUploaded?: () => void;
+  embedded?: boolean;
+}) {
   const [pending, setPending] = useState(false);
   const [version, setVersion] = useState(0);
+  const [file, setFile] = useState<File | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{
     type: "error" | "success";
     text: string;
   }>();
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function upload() {
+    if (!file) {
+      setMessage({ type: "error", text: "Välj en logotyp att ladda upp." });
+      return;
+    }
     setPending(true);
     setMessage(undefined);
-    const response = await fetch("/api/company/profile/logo", {
-      method: "POST",
-      body: new FormData(event.currentTarget),
-    });
-    if (response.ok) {
+    const body = new FormData();
+    body.set("logo", file);
+    try {
+      const response = await fetch("/api/company/profile/logo", {
+        method: "POST",
+        body,
+      });
+      if (!response.ok) throw new Error("UPLOAD_FAILED");
       setVersion((value) => value + 1);
-      setMessage({ type: "success", text: "Företagslogotypen har sparats." });
-      event.currentTarget.reset();
-    } else {
+      setFile(null);
+      if (inputRef.current) inputRef.current.value = "";
+      setMessage({ type: "success", text: "Företagslogotypen har sparats och används i nya avtal." });
+      onUploaded?.();
+    } catch {
       setMessage({
         type: "error",
         text: "Logotypen kunde inte sparas. Använd JPEG, PNG eller WebP under 10 MB.",
       });
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="mt-5 space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"
+    <div
+      className={
+        embedded
+          ? "space-y-4 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
+          : "mt-5 space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"
+      }
     >
       <div>
         <h3 className="text-lg font-semibold">Företagslogotyp</h3>
@@ -47,7 +69,7 @@ export function CompanyLogoForm({ hasLogo }: { hasLogo: boolean }) {
         </p>
       </div>
       {message ? <FormMessage type={message.type}>{message.text}</FormMessage> : null}
-      {hasLogo || version ? (
+      {hasLogo || version > 0 ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`/api/company/profile/logo?v=${version}`}
@@ -62,12 +84,18 @@ export function CompanyLogoForm({ hasLogo }: { hasLogo: boolean }) {
           type="file"
           name="logo"
           accept="image/jpeg,image/png,image/webp"
-          required
+          ref={inputRef}
+          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
       </label>
-      <button className={primaryButtonClassName} disabled={pending}>
-        {pending ? "Laddar upp…" : hasLogo || version ? "Byt logotyp" : "Ladda upp logotyp"}
+      <button
+        type="button"
+        className={primaryButtonClassName}
+        disabled={pending || !file}
+        onClick={upload}
+      >
+        {pending ? "Laddar upp…" : hasLogo || version > 0 ? "Byt logotyp" : "Ladda upp logotyp"}
       </button>
-    </form>
+    </div>
   );
 }
